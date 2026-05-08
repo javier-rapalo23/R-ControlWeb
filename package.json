@@ -1,0 +1,38 @@
+{
+  "name": "r-control-api",
+  "version": "1.0.0",
+  "description": "Control diario de compras, ventas y gastos con Next.js + Prisma",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "jest",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev --name init",
+    "prisma:studio": "prisma studio"
+  },
+  "dependencies": {
+    "next": "^15.5.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "@prisma/client": "^6.16.2",
+    "dotenv": "^17.2.3",
+    "prisma": "^6.16.2",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "eslint": "^9.18.0",
+    "eslint-config-next": "^15.5.2",
+    "jest": "^30.0.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0"
+  }
+}
