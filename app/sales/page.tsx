@@ -1,13 +1,5 @@
-import Link from 'next/link';
+import SalesPanel from '@/components/sales-panel';
 
 export default function SalesPage() {
-  return (
-    <main className="page-shell">
-      <h1>Ventas</h1>
-      <p>Gestión de ventas. Aquí integrarás formularios y listados de ventas.</p>
-      <div style={{ marginTop: 18 }}>
-        <Link href="/">← Volver al Dashboard</Link>
-      </div>
-    </main>
-  );
+  return <SalesPanel />;
 }
