@@ -46,6 +46,10 @@ function requiredRole(pathname: string, method: string): UserRole {
     return 'admin';
   }
 
+  if (pathname === '/api/import') {
+    return 'admin';
+  }
+
   if (pathname === '/api/ledger/initial-balance') {
     return 'admin';
   }

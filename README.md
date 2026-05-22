@@ -85,6 +85,43 @@ pnpm dev
 - DELETE `/api/expenses/:id`
 - GET `/api/export`
 
+## Importar data historica
+
+Endpoint: `POST /api/import` (requiere rol `admin`).
+
+Acepta dos formatos:
+
+- JSON directo con `materials` y `ledgers`
+- Texto completo exportado (como el contenido de `Chatarrerastz.txt`), aunque tenga mas de un bloque JSON
+
+Ejemplo:
+
+```http
+POST /api/import
+x-user-id: admin
+Content-Type: application/json
+
+{
+	"materials": [
+		{ "id": "cobre", "nombre": "Cobre", "precioPorLibra": 70 }
+	],
+	"ledgers": [
+		{
+			"businessDate": "2026-05-21",
+			"saldoInicial": 17000,
+			"purchases": [
+				{ "materialId": "cobre", "material": "Cobre", "precioPorLibra": 70, "libras": 1.5 }
+			],
+			"sales": [
+				{ "descripcion": "Venta muestra", "monto": 100 }
+			],
+			"expenses": [
+				{ "categoria": "Operativo", "descripcion": "Prueba", "monto": 50 }
+			]
+		}
+	]
+}
+```
 ## Deploy Vercel + Railway
 
 1. Crea una base PostgreSQL en Railway.
