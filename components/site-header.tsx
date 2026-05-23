@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import rControlLogo from '../R-CONTROL.png';
 
 type AuthMe = {
@@ -20,10 +21,9 @@ const navigationItems = [
 
 export default function SiteHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [authUser, setAuthUser] = useState<AuthMe>({ userId: null, role: null });
-  const [loginUserId, setLoginUserId] = useState('admin');
-  const [loginError, setLoginError] = useState<string | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(false);
 
   useEffect(() => {
@@ -44,36 +44,35 @@ export default function SiteHeader() {
     })();
   }, []);
 
-  async function login(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLoginError(null);
+  useEffect(() => {
+    const syncAuth = () => {
+      void (async () => {
+        try {
+          const response = await fetch('/api/auth/me', { cache: 'no-store' });
+          const body = (await response.json()) as { ok: boolean; data?: AuthMe };
+          if (body.ok && body.data) {
+            setAuthUser(body.data);
+            return;
+          }
+        } catch {
+          // ignore and fall through
+        }
 
-    try {
-      setLoadingAuth(true);
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ userId: loginUserId }),
-      });
+        setAuthUser({ userId: null, role: null });
+      })();
+    };
 
-      const body = (await response.json()) as { ok: boolean; data?: AuthMe; error?: { message?: string } };
-      if (!body.ok || !body.data) {
-        throw new Error(body.error?.message ?? 'No se pudo iniciar sesión');
-      }
-
-      setAuthUser(body.data);
-    } catch (error) {
-      setLoginError(error instanceof Error ? error.message : 'No se pudo iniciar sesión');
-    } finally {
-      setLoadingAuth(false);
-    }
-  }
+    window.addEventListener('rcontrol-auth-changed', syncAuth);
+    return () => window.removeEventListener('rcontrol-auth-changed', syncAuth);
+  }, []);
 
   async function logout() {
     setLoadingAuth(true);
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
       setAuthUser({ userId: null, role: null });
+      window.dispatchEvent(new Event('rcontrol-auth-changed'));
+      router.push('/login');
     } finally {
       setLoadingAuth(false);
     }
@@ -116,19 +115,10 @@ export default function SiteHeader() {
               </button>
             </>
           ) : (
-            <form className="auth-form" onSubmit={(event) => void login(event)}>
-              <input
-                value={loginUserId}
-                onChange={(event) => setLoginUserId(event.target.value)}
-                placeholder="usuario"
-                aria-label="Usuario para iniciar sesión"
-              />
-              <button className="btn-primary" type="submit" disabled={loadingAuth}>
-                Entrar
-              </button>
-            </form>
+            <Link href="/login" className="btn-primary auth-link">
+              Entrar
+            </Link>
           )}
-          {loginError ? <span className="auth-error">{loginError}</span> : null}
         </div>
 
         <nav id="main-navigation" className={`nav ${isOpen ? 'nav--open' : ''}`}>

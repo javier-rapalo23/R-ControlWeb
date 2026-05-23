@@ -69,6 +69,16 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (!pathname.startsWith('/api')) {
+    const hasAuthCookie = Boolean(request.cookies.get('rcontrol_user')?.value?.trim());
+
+    if (pathname === '/login') {
+      return hasAuthCookie ? NextResponse.redirect(new URL('/', request.url)) : NextResponse.next();
+    }
+
+    return hasAuthCookie ? NextResponse.next() : NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  if (pathname.startsWith('/api/auth')) {
     return NextResponse.next();
   }
 
@@ -119,5 +129,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/:path*'],
+  matcher: ['/api/:path*', '/((?!_next|favicon.ico|api).*)'],
 };
