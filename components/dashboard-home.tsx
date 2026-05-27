@@ -43,6 +43,8 @@ export default function DashboardHome() {
   const [stockLoading, setStockLoading] = useState(false);
   const [stockError, setStockError] = useState<string | null>(null);
   const [stockResult, setStockResult] = useState<any | null>(null);
+  const [materials, setMaterials] = useState<any[]>([]);
+  const [materialsLoading, setMaterialsLoading] = useState(false);
 
   const fetchLedger = useCallback(async () => {
     try {
@@ -61,6 +63,26 @@ export default function DashboardHome() {
   useEffect(() => {
     void fetchLedger();
   }, [fetchLedger]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setMaterialsLoading(true);
+        const res = await fetch('/api/materials', { cache: 'no-store' });
+        const data = await parseApiResponse<any>(res);
+        const list = Array.isArray(data) ? data : data.materials ?? data.items ?? [];
+        if (mounted) setMaterials(list);
+      } catch (err) {
+        // ignore errors fetching materials for the select
+      } finally {
+        if (mounted) setMaterialsLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   async function importData(event: React.FormEvent) {
     event.preventDefault();
@@ -151,27 +173,26 @@ export default function DashboardHome() {
           <div className="value">L {ledger ? ledger.purchases.length + ledger.sales.length + ledger.expenses.length : 0}</div>
         </article>
 
-        <article className="card wide">
-          <h3>Módulos</h3>
-          <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-            <Link href="/purchases">
-              <button className="btn-primary">Ir a Compras</button>
-            </Link>
-            <Link href="/sales">
-              <button className="btn-primary">Ir a Ventas</button>
-            </Link>
-            <Link href="/expenses">
-              <button className="btn-primary">Reportar Gastos</button>
-            </Link>
-          </div>
-        </article>
+        
 
         <article className="card wide">
           <h3>Consultar stock por material</h3>
           <div className="row" style={{ marginTop: 8 }}>
             <label style={{ gridColumn: 'span 3' }}>
-              Material id
-              <input value={materialQuery} onChange={(e) => setMaterialQuery(e.target.value)} placeholder="ej. hierro" />
+              Material
+              <select value={materialQuery} onChange={(e) => setMaterialQuery(e.target.value)}>
+                <option value="">-- Todos --</option>
+                {materials.map((m) => {
+                  const id = m.id ?? m.materialId ?? m.material_id ?? String(m);
+                  const nombre = m.nombre ?? m.materialNombre ?? m.name ?? m.material_nombre ?? id;
+                  return (
+                    <option key={id} value={id}>
+                      {`${nombre} (${id})`}
+                    </option>
+                  );
+                })}
+              </select>
+              {materialsLoading ? <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>Cargando materiales...</div> : null}
             </label>
             <label style={{ gridColumn: 'span 3' }}>
               Desde
