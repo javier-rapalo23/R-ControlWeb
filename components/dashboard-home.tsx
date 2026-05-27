@@ -37,6 +37,12 @@ export default function DashboardHome() {
   const [importing, setImporting] = useState(false);
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [materialQuery, setMaterialQuery] = useState<string>('');
+  const [fromDate, setFromDate] = useState<string>('2026-05-25');
+  const [toDate, setToDate] = useState<string>(todayDateString());
+  const [stockLoading, setStockLoading] = useState(false);
+  const [stockError, setStockError] = useState<string | null>(null);
+  const [stockResult, setStockResult] = useState<any | null>(null);
 
   const fetchLedger = useCallback(async () => {
     try {
@@ -158,6 +164,77 @@ export default function DashboardHome() {
               <button className="btn-primary">Reportar Gastos</button>
             </Link>
           </div>
+        </article>
+
+        <article className="card wide">
+          <h3>Consultar stock por material</h3>
+          <div className="row" style={{ marginTop: 8 }}>
+            <label style={{ gridColumn: 'span 3' }}>
+              Material id
+              <input value={materialQuery} onChange={(e) => setMaterialQuery(e.target.value)} placeholder="ej. hierro" />
+            </label>
+            <label style={{ gridColumn: 'span 3' }}>
+              Desde
+              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            </label>
+            <label style={{ gridColumn: 'span 3' }}>
+              Hasta
+              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            </label>
+            <div style={{ gridColumn: 'span 3', alignSelf: 'end' }}>
+              <button
+                className="btn-primary"
+                type="button"
+                disabled={stockLoading}
+                onClick={async () => {
+                  try {
+                    setStockLoading(true);
+                    setStockError(null);
+                    setStockResult(null);
+                    const qs = new URLSearchParams();
+                    if (materialQuery.trim()) qs.set('materialId', materialQuery.trim());
+                    if (fromDate) qs.set('from', fromDate);
+                    if (toDate) qs.set('to', toDate);
+                    const res = await fetch(`/api/materials/stock?${qs.toString()}`, { cache: 'no-store' });
+                    const body = await parseApiResponse<any>(res);
+                    setStockResult(body);
+                  } catch (err) {
+                    setStockError(err instanceof Error ? err.message : 'Error consultando stock');
+                  } finally {
+                    setStockLoading(false);
+                  }
+                }}
+              >
+                {stockLoading ? 'Consultando...' : 'Consultar'}
+              </button>
+            </div>
+          </div>
+
+          {stockError ? <p style={{ color: 'var(--danger)' }}>{stockError}</p> : null}
+          {stockResult ? (
+            <div style={{ marginTop: 12 }}>
+              {stockResult.data?.materialId ? (
+                <div>
+                  <div><strong>Total libras:</strong> {stockResult.data.totalLibras ?? 0}</div>
+                  <h4>Desglose diario</h4>
+                  <ul>
+                    {stockResult.data.daily?.map((d: any) => (
+                      <li key={d.businessDate}>{d.businessDate}: {d.libras}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <div>
+                  <h4>Totales por material</h4>
+                  <ul>
+                    {stockResult.data?.materials?.map((m: any) => (
+                      <li key={m.materialId}>{m.materialNombre} ({m.materialId}): {m.totalLibras} libras</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : null}
         </article>
 
         <article className="card wide">
