@@ -16,6 +16,10 @@ const newsreader = Newsreader({
 export const metadata: Metadata = {
   title: 'R Control | Ledger Diario',
   description: 'Control diario de compras, ventas y gastos.',
+  icons: {
+    icon: '/icon.png', 
+    apple: '/apple-touch-icon.png', 
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
