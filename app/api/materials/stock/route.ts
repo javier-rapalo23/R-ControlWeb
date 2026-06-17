@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { handleApiError, success } from '@/lib/api-response';
 import { prisma } from '@/lib/prisma';
 import { parseBusinessDate, toBusinessDateString } from '@/lib/business-date';
@@ -9,7 +10,7 @@ export async function GET(request: Request) {
     const from = searchParams.get('from');
     const to = searchParams.get('to');
 
-    const where: any = {};
+    const where: Prisma.PurchaseWhereInput = {};
 
     if (materialId) where.materialId = materialId;
 

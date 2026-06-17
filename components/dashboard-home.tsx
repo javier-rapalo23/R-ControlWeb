@@ -2,11 +2,21 @@
 
 import Image from 'next/image';
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
 import type { ApiResponse } from '@/types/api';
-import type { CompanySettingsDTO, LedgerDTO } from '@/types/domain';
+import type { CompanySettingsDTO, LedgerDTO, MaterialDTO } from '@/types/domain';
 import { useRoleGuard } from '@/lib/use-role-guard';
 import rControlLogo from '../R-CONTROL.png';
+
+type DailyStockEntry = { businessDate: string; libras: number };
+type MaterialStockSummary = { materialId: string; materialNombre: string; totalLibras: number };
+type StockResult = {
+  data?: {
+    materialId?: string;
+    totalLibras?: number;
+    daily?: DailyStockEntry[];
+    materials?: MaterialStockSummary[];
+  };
+};
 
 type ImportApiData = {
   imported: {
@@ -44,8 +54,8 @@ export default function DashboardHome() {
   const [toDate, setToDate] = useState<string>(todayDateString());
   const [stockLoading, setStockLoading] = useState(false);
   const [stockError, setStockError] = useState<string | null>(null);
-  const [stockResult, setStockResult] = useState<any | null>(null);
-  const [materials, setMaterials] = useState<any[]>([]);
+  const [stockResult, setStockResult] = useState<StockResult | null>(null);
+  const [materials, setMaterials] = useState<MaterialDTO[]>([]);
   const [materialsLoading, setMaterialsLoading] = useState(false);
   const [companyName, setCompanyName] = useState<string | null>(null);
 
@@ -89,10 +99,9 @@ export default function DashboardHome() {
       try {
         setMaterialsLoading(true);
         const res = await fetch('/api/materials', { cache: 'no-store' });
-        const data = await parseApiResponse<any>(res);
-        const list = Array.isArray(data) ? data : data.materials ?? data.items ?? [];
+        const list = await parseApiResponse<MaterialDTO[]>(res);
         if (mounted) setMaterials(list);
-      } catch (err) {
+      } catch {
         // ignore errors fetching materials for the select
       } finally {
         if (mounted) setMaterialsLoading(false);
@@ -273,15 +282,11 @@ export default function DashboardHome() {
               Material
               <select value={materialQuery} onChange={(e) => setMaterialQuery(e.target.value)}>
                 <option value="">-- Todos --</option>
-                {materials.map((m) => {
-                  const id = m.id ?? m.materialId ?? m.material_id ?? String(m);
-                  const nombre = m.nombre ?? m.materialNombre ?? m.name ?? m.material_nombre ?? id;
-                  return (
-                    <option key={id} value={id}>
-                      {nombre}
-                    </option>
-                  );
-                })}
+                {materials.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.nombre}
+                  </option>
+                ))}
               </select>
               {materialsLoading ? <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>Cargando materiales...</div> : null}
             </label>
@@ -308,7 +313,7 @@ export default function DashboardHome() {
                     if (fromDate) qs.set('from', fromDate);
                     if (toDate) qs.set('to', toDate);
                     const res = await fetch(`/api/materials/stock?${qs.toString()}`, { cache: 'no-store' });
-                    const body = await parseApiResponse<any>(res);
+                    const body = await parseApiResponse<StockResult>(res);
                     setStockResult(body);
                   } catch (err) {
                     setStockError(err instanceof Error ? err.message : 'Error consultando stock');
@@ -330,7 +335,7 @@ export default function DashboardHome() {
                   <div><strong>Total libras:</strong> {stockResult.data.totalLibras ?? 0}</div>
                   <h4>Desglose diario</h4>
                   <BarList
-                    items={(stockResult.data.daily ?? []).map((d: any) => ({
+                    items={(stockResult.data.daily ?? []).map((d: DailyStockEntry) => ({
                       key: d.businessDate,
                       label: d.businessDate,
                       value: Number(d.libras) || 0,
@@ -341,7 +346,7 @@ export default function DashboardHome() {
                 <div>
                   <h4>Totales por material</h4>
                   <BarList
-                    items={(stockResult.data?.materials ?? []).map((m: any) => ({
+                    items={(stockResult.data?.materials ?? []).map((m: MaterialStockSummary) => ({
                       key: m.materialId,
                       label: m.materialNombre,
                       value: Number(m.totalLibras) || 0,
