@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { handleApiError, success } from '@/lib/api-response';
 import { parseBusinessDate, toBusinessDateString } from '@/lib/business-date';
 import { prisma } from '@/lib/prisma';
@@ -7,7 +8,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const materialId = searchParams.get('materialId');
 
-    const where: any = {};
+    const where: Prisma.MaterialCargaWhereInput = {};
     if (materialId) where.materialId = materialId;
 
     const cargas = await prisma.materialCarga.findMany({
