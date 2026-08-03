@@ -26,9 +26,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="es">
       <body className={`${spaceGrotesk.variable} ${newsreader.variable}`}>
-        <SiteHeader />
-
-        {children}
+        <div className="app-shell">
+          <SiteHeader />
+          <div className="app-content">{children}</div>
+        </div>
       </body>
     </html>
   );

@@ -436,7 +436,12 @@ export default function PurchasesPanel() {
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                       <strong style={{ fontSize: 14, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.materialNombre}</strong>
-                      <button className="btn-danger" onClick={() => removeCartItem(item.id)} type="button" style={{ flexShrink: 0, padding: '4px 10px', fontSize: 12 }}>
+                      <button
+                        className="btn-danger cart-item-remove"
+                        onClick={() => removeCartItem(item.id)}
+                        type="button"
+                        style={{ flexShrink: 0, padding: '4px 10px', fontSize: 12 }}
+                      >
                         Eliminar
                       </button>
                     </div>

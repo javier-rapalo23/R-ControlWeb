@@ -133,7 +133,10 @@ export default function InventoryPanel() {
     <main className="page-shell">
       <section className="hero">
         <h1>Inventario</h1>
-        <p>Stock actual por material desde el último envío a venta. Registra cuándo mandas a vender un lote.</p>
+        <p>
+          Stock actual por material: compras acumuladas menos envíos a venta. Registra cuándo mandas a vender un lote
+          y solo se rebajará esa cantidad (si dejas las libras en blanco, se asume que se envió todo el stock).
+        </p>
       </section>
 
       <section className="card-grid">
@@ -188,7 +191,7 @@ export default function InventoryPanel() {
               <input
                 type="number"
                 step="0.01"
-                placeholder="Opcional"
+                placeholder="Vacío = se envió todo el stock"
                 value={formLibras}
                 onChange={(event) => setFormLibras(event.target.value)}
               />
