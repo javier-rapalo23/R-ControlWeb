@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { ApiResponse } from '@/types/api';
-import type { ClientDTO, LedgerDTO, MaterialDTO, PurchaseTransactionDTO } from '@/types/domain';
+import type { ClientDTO, CompanySettingsDTO, LedgerDTO, MaterialDTO, PurchaseTransactionDTO } from '@/types/domain';
+import { usePrintMode } from '@/lib/use-print-mode';
+import { printTicketInBrowser } from '@/lib/print-html';
 
 type CartItem = {
   id: string;
@@ -31,8 +33,6 @@ function decimalOrZero(input: string) {
   return Number.isFinite(value) ? value : 0;
 }
 
-const RAWBT_STORAGE_KEY = 'rcontrol_rawbt_enabled';
-
 export default function PurchasesPanel() {
   const [businessDate, setBusinessDate] = useState(todayDateString());
   const [ledger, setLedger] = useState<LedgerDTO | null>(null);
@@ -43,7 +43,8 @@ export default function PurchasesPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [printingId, setPrintingId] = useState<string | null>(null);
-  const [rawbtEnabled, setRawbtEnabled] = useState(false);
+  const [printMode, setPrintMode] = usePrintMode();
+  const [company, setCompany] = useState<CompanySettingsDTO | null>(null);
 
   const [selectedClientId, setSelectedClientId] = useState('');
   const [newClientName, setNewClientName] = useState('');
@@ -105,13 +106,13 @@ export default function PurchasesPanel() {
   }, [refresh]);
 
   useEffect(() => {
-    setRawbtEnabled(localStorage.getItem(RAWBT_STORAGE_KEY) === 'true');
+    fetch('/api/settings/company', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((body: { ok: boolean; data?: CompanySettingsDTO }) => {
+        if (body.ok && body.data) setCompany(body.data);
+      })
+      .catch(() => undefined);
   }, []);
-
-  function toggleRawbt(value: boolean) {
-    setRawbtEnabled(value);
-    localStorage.setItem(RAWBT_STORAGE_KEY, value ? 'true' : 'false');
-  }
 
   const cartTotal = useMemo(
     () =>
@@ -238,7 +239,28 @@ export default function PurchasesPanel() {
       setError(null);
       setPrintingId(transaction.id);
 
-      if (rawbtEnabled) {
+      if (printMode === 'browser') {
+        printTicketInBrowser({
+          company: {
+            nombre: company?.nombre ?? '',
+            rtn: company?.rtn,
+            telefono: company?.telefono,
+            direccion: company?.direccion,
+          },
+          businessDate: transaction.businessDate,
+          clientNombre: transaction.client.nombre,
+          items: transaction.items.map((item) => ({
+            materialNombre: item.materialNombre,
+            libras: item.libras,
+            precioPorLibra: item.precioPorLibra,
+            total: item.total,
+          })),
+          total: transaction.total,
+        });
+        return;
+      }
+
+      if (printMode === 'rawbt') {
         const { payloadB64 } = await fetch(`/api/print/ticket/data?transactionId=${transaction.id}`, {
           cache: 'no-store',
         }).then(parseApiResponse<{ payloadB64: string }>);
@@ -486,8 +508,12 @@ export default function PurchasesPanel() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
             <h3>Transacciones del día</h3>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-soft)' }}>
-              <input type="checkbox" checked={rawbtEnabled} onChange={(e) => toggleRawbt(e.target.checked)} />
-              Imprimir con RawBT en este dispositivo
+              Impresión en este dispositivo
+              <select value={printMode} onChange={(e) => setPrintMode(e.target.value as typeof printMode)}>
+                <option value="queue">Impresora de red (sin vista previa)</option>
+                <option value="rawbt">RawBT (Android)</option>
+                <option value="browser">Diálogo del navegador (con vista previa)</option>
+              </select>
             </label>
           </div>
           <div style={{ display: 'grid', gap: 12, marginTop: 8 }}>

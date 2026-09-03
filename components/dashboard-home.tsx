@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ApiResponse } from '@/types/api';
 import type { CompanySettingsDTO, LedgerDTO, MaterialDTO } from '@/types/domain';
 import { useRoleGuard } from '@/lib/use-role-guard';
+import { usePrintMode } from '@/lib/use-print-mode';
+import { printSummaryInBrowser } from '@/lib/print-html';
 import rControlLogo from '../R-CONTROL.png';
 
 type DailyStockEntry = { businessDate: string; libras: number };
@@ -42,8 +44,6 @@ function todayDateString() {
   return `${year}-${month}-${day}`;
 }
 
-const RAWBT_STORAGE_KEY = 'rcontrol_rawbt_enabled';
-
 export default function DashboardHome() {
   const roleGuardStatus = useRoleGuard((role) => role !== 'comprador', '/purchases');
   const [businessDate, setBusinessDate] = useState(todayDateString());
@@ -63,8 +63,8 @@ export default function DashboardHome() {
   const [stockResult, setStockResult] = useState<StockResult | null>(null);
   const [materials, setMaterials] = useState<MaterialDTO[]>([]);
   const [materialsLoading, setMaterialsLoading] = useState(false);
-  const [companyName, setCompanyName] = useState<string | null>(null);
-  const [rawbtEnabled, setRawbtEnabled] = useState(false);
+  const [company, setCompany] = useState<CompanySettingsDTO | null>(null);
+  const [printMode, setPrintMode] = usePrintMode();
   const [printingSummary, setPrintingSummary] = useState(false);
 
   const fetchLedger = useCallback(async () => {
@@ -85,21 +85,26 @@ export default function DashboardHome() {
     void fetchLedger();
   }, [fetchLedger]);
 
-  useEffect(() => {
-    setRawbtEnabled(localStorage.getItem(RAWBT_STORAGE_KEY) === 'true');
-  }, []);
-
-  function toggleRawbt(value: boolean) {
-    setRawbtEnabled(value);
-    localStorage.setItem(RAWBT_STORAGE_KEY, value ? 'true' : 'false');
-  }
-
   async function printSummary() {
     try {
       setError(null);
       setPrintingSummary(true);
 
-      if (rawbtEnabled) {
+      if (printMode === 'browser') {
+        printSummaryInBrowser({
+          companyNombre: company?.nombre ?? '',
+          businessDate,
+          materials: dailyPurchasesSummary,
+          totalCompras: ledger?.totals.totalCompras ?? 0,
+          totalVentas: ledger?.totals.totalVentas ?? 0,
+          totalGastos: ledger?.totals.totalGastos ?? 0,
+          saldoInicial: ledger?.balance.saldoInicial ?? 0,
+          saldoActual: ledger?.totals.saldoActual ?? 0,
+        });
+        return;
+      }
+
+      if (printMode === 'rawbt') {
         const { payloadB64 } = await fetch(`/api/print/summary/data?businessDate=${businessDate}`, {
           cache: 'no-store',
         }).then(parseApiResponse<{ payloadB64: string }>);
@@ -145,9 +150,9 @@ export default function DashboardHome() {
       try {
         const res = await fetch('/api/settings/company', { cache: 'no-store' });
         const data = await parseApiResponse<CompanySettingsDTO>(res);
-        if (mounted && data.nombre) setCompanyName(data.nombre);
+        if (mounted) setCompany(data);
       } catch {
-        // ignore errors fetching company name
+        // ignore errors fetching company settings
       }
     })();
     return () => {
@@ -269,7 +274,7 @@ export default function DashboardHome() {
         <Image src={rControlLogo} width={132} height={132} className="hero-logo" alt="R Control" priority />
         <div>
           <h1>Control Diario — Resumen</h1>
-          {companyName ? <h2 style={{ fontWeight: 600, marginBottom: 2 }}>{companyName}</h2> : null}
+          {company?.nombre ? <h2 style={{ fontWeight: 600, marginBottom: 2 }}>{company.nombre}</h2> : null}
           <p>Resumen rápido del día y accesos a los módulos de Compras, Ventas y Gastos.</p>
         </div>
       </section>
@@ -315,8 +320,12 @@ export default function DashboardHome() {
             <h3>Resumen de compras del día</h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-soft)' }}>
-                <input type="checkbox" checked={rawbtEnabled} onChange={(e) => toggleRawbt(e.target.checked)} />
-                Imprimir con RawBT en este dispositivo
+                Impresión en este dispositivo
+                <select value={printMode} onChange={(e) => setPrintMode(e.target.value as typeof printMode)}>
+                  <option value="queue">Impresora de red (sin vista previa)</option>
+                  <option value="rawbt">RawBT (Android)</option>
+                  <option value="browser">Diálogo del navegador (con vista previa)</option>
+                </select>
               </label>
               <button className="btn-primary" type="button" disabled={printingSummary} onClick={() => void printSummary()}>
                 {printingSummary ? 'Imprimiendo...' : 'Imprimir resumen del día'}

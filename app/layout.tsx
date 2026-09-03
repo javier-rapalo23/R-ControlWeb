@@ -14,7 +14,7 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: 'R Control | Ledger Diario',
+  title: 'R Control',
   description: 'Control diario de compras, ventas y gastos.',
   icons: {
     icon: '/icon.png', 
