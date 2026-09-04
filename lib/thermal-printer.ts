@@ -1,15 +1,21 @@
 import { Socket } from 'net';
+import iconv from 'iconv-lite';
 
 const ESC = 0x1b;
 const GS = 0x1d;
 const LINE_WIDTH = 32;
 
+// PC850 (Multilingual) covers Spanish accents/ñ and is supported by virtually
+// every ESC/POS-compatible printer, including generic clones.
+const CODEPAGE = 'cp850';
+const CODEPAGE_TABLE_INDEX = 2;
+
 function text(value = '') {
-  return Buffer.from(`${value}\n`, 'latin1');
+  return iconv.encode(`${value}\n`, CODEPAGE);
 }
 
-function raw(value: string) {
-  return Buffer.from(value, 'latin1');
+function selectCodepage() {
+  return Buffer.from([ESC, 0x74, CODEPAGE_TABLE_INDEX]);
 }
 
 function align(mode: 'left' | 'center') {
@@ -20,12 +26,21 @@ function bold(on: boolean) {
   return Buffer.from([ESC, 0x45, on ? 1 : 0]);
 }
 
+function charSize(heightMultiplier: number, widthMultiplier: number) {
+  const n = ((widthMultiplier - 1) << 4) | (heightMultiplier - 1);
+  return Buffer.from([GS, 0x21, n]);
+}
+
+function feed(lines: number) {
+  return Buffer.from([ESC, 0x64, lines]);
+}
+
 function cut() {
   return Buffer.from([GS, 0x56, 0x00]);
 }
 
 function init() {
-  return Buffer.from([ESC, 0x40]);
+  return Buffer.concat([Buffer.from([ESC, 0x40]), selectCodepage()]);
 }
 
 function padRight(value: string, width: number) {
@@ -73,13 +88,16 @@ export function buildTicketBuffer(data: TicketData): Buffer {
   }
 
   chunks.push(text(dash));
-  chunks.push(bold(true));
-  chunks.push(text(padLeft(`TOTAL: L ${data.total.toFixed(2)}`, LINE_WIDTH)));
-  chunks.push(bold(false));
   chunks.push(align('center'));
-  chunks.push(text());
-  chunks.push(text('Gracias por su visita'));
-  chunks.push(raw('\n\n\n'));
+  chunks.push(bold(true));
+  chunks.push(charSize(2, 1));
+  chunks.push(text(`TOTAL: L ${data.total.toFixed(2)}`));
+  chunks.push(charSize(1, 1));
+  chunks.push(bold(false));
+
+  chunks.push(text(dash));
+  chunks.push(text('¡Gracias por su visita!'));
+  chunks.push(feed(3));
   chunks.push(cut());
 
   return Buffer.concat(chunks);
@@ -127,11 +145,15 @@ export function buildSummaryBuffer(data: SummaryData): Buffer {
   chunks.push(text(twoColumns('Total Gastos:', `L ${data.totalGastos.toFixed(2)}`)));
   chunks.push(text(dash));
   chunks.push(text(twoColumns('Saldo inicial:', `L ${data.saldoInicial.toFixed(2)}`)));
-  chunks.push(bold(true));
-  chunks.push(text(twoColumns('CIERRE EST. CAJA:', `L ${data.saldoActual.toFixed(2)}`)));
-  chunks.push(bold(false));
+
   chunks.push(align('center'));
-  chunks.push(raw('\n\n\n'));
+  chunks.push(bold(true));
+  chunks.push(charSize(2, 1));
+  chunks.push(text(`CIERRE EST. CAJA: L ${data.saldoActual.toFixed(2)}`));
+  chunks.push(charSize(1, 1));
+  chunks.push(bold(false));
+
+  chunks.push(feed(3));
   chunks.push(cut());
 
   return Buffer.concat(chunks);
