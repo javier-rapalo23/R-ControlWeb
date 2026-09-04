@@ -58,6 +58,43 @@ function twoColumns(left: string, right: string) {
   return `${left}\n${padLeft(right, LINE_WIDTH)}`;
 }
 
+const MESES_ES = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+];
+
+function formatLongDateEs(businessDate: string) {
+  const [year, month, day] = businessDate.split('-').map(Number);
+  const mes = MESES_ES[month - 1] ?? businessDate;
+  return `${day} ${mes} ${year}`;
+}
+
+// Column widths for the items table (sums to LINE_WIDTH): Lb(6) + gap(1) +
+// Material(8) + gap(1) + Precio/lb(7) + gap(1) + Total(8) = 32
+const ITEM_COL_LB = 6;
+const ITEM_COL_MATERIAL = 8;
+const ITEM_COL_PRECIO = 7;
+const ITEM_COL_TOTAL = 8;
+
+function itemTableRow(lb: string, material: string, precio: string, total: string) {
+  return [
+    padRight(lb, ITEM_COL_LB),
+    padRight(material, ITEM_COL_MATERIAL),
+    padLeft(precio, ITEM_COL_PRECIO),
+    padLeft(total, ITEM_COL_TOTAL),
+  ].join(' ');
+}
+
 export type TicketData = {
   company: { nombre: string; rtn: string; telefono: string; direccion: string };
   businessDate: string;
@@ -68,24 +105,37 @@ export type TicketData = {
 
 export function buildTicketBuffer(data: TicketData): Buffer {
   const dash = '-'.repeat(LINE_WIDTH);
-  const chunks: Buffer[] = [init(), align('center'), bold(true), text(data.company.nombre || 'R-CONTROL'), bold(false)];
+  const doubleDash = '='.repeat(LINE_WIDTH);
+  const chunks: Buffer[] = [init(), align('center'), bold(true), charSize(2, 1), text(data.company.nombre || 'R-CONTROL'), bold(false)];
 
   chunks.push(text('Comprobante de Compra'));
   if (data.company.rtn) chunks.push(text(`RTN: ${data.company.rtn}`));
   if (data.company.telefono) chunks.push(text(`Tel: ${data.company.telefono}`));
   if (data.company.direccion) chunks.push(text(data.company.direccion));
-
+  chunks.push(charSize(1, 1));
+  
+  chunks.push(text(dash));
   chunks.push(align('left'));
-  chunks.push(text(dash));
-  chunks.push(text(`Fecha: ${data.businessDate}`));
+  chunks.push(text(`Fecha: ${formatLongDateEs(data.businessDate)}`));
   chunks.push(text(`Cliente: ${data.clientNombre}`));
+  chunks.push(align('center'));
   chunks.push(text(dash));
 
-  for (const item of data.items) {
-    chunks.push(text(item.materialNombre));
-    const detail = `${item.libras.toFixed(2)} lb x L${item.precioPorLibra.toFixed(2)}`;
-    chunks.push(text(twoColumns(detail, `L ${item.total.toFixed(2)}`)));
-  }
+  chunks.push(text(itemTableRow('Lb', 'Material', 'P/Lb', 'Total')));
+  chunks.push(text(doubleDash));
+  data.items.forEach((item, index) => {
+    chunks.push(
+      text(
+        itemTableRow(
+          item.libras.toFixed(2),
+          item.materialNombre,
+          `L${item.precioPorLibra.toFixed(2)}`,
+          `L${item.total.toFixed(2)}`,
+        ),
+      ),
+    );
+    if (index < data.items.length - 1) chunks.push(text());
+  });
 
   chunks.push(text(dash));
   chunks.push(align('center'));
@@ -98,6 +148,8 @@ export function buildTicketBuffer(data: TicketData): Buffer {
   chunks.push(text(dash));
   chunks.push(text('¡Gracias por su visita!'));
   chunks.push(feed(3));
+  chunks.push(align('center'));
+  chunks.push(text(dash));
   chunks.push(cut());
 
   return Buffer.concat(chunks);
@@ -125,7 +177,7 @@ export function buildSummaryBuffer(data: SummaryData): Buffer {
 
   chunks.push(align('left'));
   chunks.push(text(dash));
-  chunks.push(text(`Fecha: ${data.businessDate}`));
+  chunks.push(text(`Fecha: ${formatLongDateEs(data.businessDate)}`));
   chunks.push(text(dash));
 
   chunks.push(bold(true));
