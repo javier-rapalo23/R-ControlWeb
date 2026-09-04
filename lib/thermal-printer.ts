@@ -79,20 +79,15 @@ function formatLongDateEs(businessDate: string) {
   return `${day} ${mes} ${year}`;
 }
 
-// Column widths for the items table (sums to LINE_WIDTH): Lb(6) + gap(1) +
-// Material(8) + gap(1) + Precio/lb(7) + gap(1) + Total(8) = 32
+// The material name gets its own full-width line (so long names never get
+// truncated); only Lb / Precio-lb / Total share the aligned columns below it.
+// Widths sum to LINE_WIDTH: Lb(6) + gap(1) + Precio/lb(11) + gap(1) + Total(13) = 32
 const ITEM_COL_LB = 6;
-const ITEM_COL_MATERIAL = 8;
-const ITEM_COL_PRECIO = 7;
-const ITEM_COL_TOTAL = 8;
+const ITEM_COL_PRECIO = 11;
+const ITEM_COL_TOTAL = 13;
 
-function itemTableRow(lb: string, material: string, precio: string, total: string) {
-  return [
-    padRight(lb, ITEM_COL_LB),
-    padRight(material, ITEM_COL_MATERIAL),
-    padLeft(precio, ITEM_COL_PRECIO),
-    padLeft(total, ITEM_COL_TOTAL),
-  ].join(' ');
+function itemNumbersRow(lb: string, precio: string, total: string) {
+  return [padRight(lb, ITEM_COL_LB), padLeft(precio, ITEM_COL_PRECIO), padLeft(total, ITEM_COL_TOTAL)].join(' ');
 }
 
 export type TicketData = {
@@ -107,31 +102,25 @@ export function buildTicketBuffer(data: TicketData): Buffer {
   const dash = '-'.repeat(LINE_WIDTH);
   const doubleDash = '='.repeat(LINE_WIDTH);
   const chunks: Buffer[] = [init(), align('center'), bold(true), charSize(2, 1), text(data.company.nombre || 'R-CONTROL'), bold(false)];
-  charSize(1, 1);
+    chunks.push(charSize(1, 1));
   chunks.push(text('Comprobante de Compra'));
   if (data.company.rtn) chunks.push(text(`RTN: ${data.company.rtn}`));
   if (data.company.telefono) chunks.push(text(`Tel: ${data.company.telefono}`));
   if (data.company.direccion) chunks.push(text(data.company.direccion));
   chunks.push(charSize(1, 1));
-  
+  chunks.push(align('left'));
+
   chunks.push(text(dash));
   chunks.push(text(`Fecha: ${formatLongDateEs(data.businessDate)}`));
   chunks.push(text(`Cliente: ${data.clientNombre}`));
-  chunks.push(align('center'));
   chunks.push(text(dash));
 
-  chunks.push(text(itemTableRow('Lb', 'Material', 'P/Lb', 'Total')));
+  chunks.push(text(itemNumbersRow('Lb', 'P/Lb', 'Total')));
   chunks.push(text(doubleDash));
   data.items.forEach((item, index) => {
+    chunks.push(text(item.materialNombre));
     chunks.push(
-      text(
-        itemTableRow(
-          item.libras.toFixed(2),
-          item.materialNombre,
-          `L${item.precioPorLibra.toFixed(2)}`,
-          `L${item.total.toFixed(2)}`,
-        ),
-      ),
+      text(itemNumbersRow(item.libras.toFixed(2), `L${item.precioPorLibra.toFixed(2)}`, `L${item.total.toFixed(2)}`)),
     );
     if (index < data.items.length - 1) chunks.push(text());
   });
