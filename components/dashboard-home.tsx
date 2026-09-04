@@ -20,16 +20,6 @@ type StockResult = {
   };
 };
 
-type ImportApiData = {
-  imported: {
-    importedDays: number;
-    importedMaterials: number;
-    importedPurchases: number;
-    importedSales: number;
-    importedExpenses: number;
-  };
-};
-
 async function parseApiResponse<T>(response: Response): Promise<T> {
   const body = (await response.json()) as ApiResponse<T>;
   if (!body.ok) throw new Error(body.error.message);
@@ -130,11 +120,6 @@ export default function DashboardHome() {
   const [ledger, setLedger] = useState<LedgerDTO | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [importUserId, setImportUserId] = useState('admin');
-  const [importFile, setImportFile] = useState<File | null>(null);
-  const [importing, setImporting] = useState(false);
-  const [importSuccess, setImportSuccess] = useState<string | null>(null);
-  const [importError, setImportError] = useState<string | null>(null);
   const [materialQuery, setMaterialQuery] = useState<string>('');
   const [fromDate, setFromDate] = useState<string>('2026-05-25');
   const [toDate, setToDate] = useState<string>(todayDateString());
@@ -330,49 +315,6 @@ export default function DashboardHome() {
     return Object.values(byMaterial).sort((a, b) => b.total - a.total);
   })();
 
-  async function importData(event: React.FormEvent) {
-    event.preventDefault();
-
-    if (!importFile) {
-      setImportError('Selecciona un archivo .txt o .json para importar.');
-      setImportSuccess(null);
-      return;
-    }
-
-    if (!importUserId.trim()) {
-      setImportError('Ingresa el usuario autorizado para importar.');
-      setImportSuccess(null);
-      return;
-    }
-
-    try {
-      setImporting(true);
-      setImportError(null);
-      setImportSuccess(null);
-
-      const raw = await importFile.text();
-      const response = await fetch('/api/import', {
-        method: 'POST',
-        headers: {
-          'content-type': 'text/plain',
-          'x-user-id': importUserId.trim(),
-        },
-        body: raw,
-      });
-
-      const data = await parseApiResponse<ImportApiData>(response);
-      setImportSuccess(
-        `Importación lista: ${data.imported.importedDays} días, ${data.imported.importedPurchases} compras, ${data.imported.importedSales} ventas, ${data.imported.importedExpenses} gastos.`,
-      );
-      setImportFile(null);
-      await fetchLedger();
-    } catch (err) {
-      setImportError(err instanceof Error ? err.message : 'No fue posible importar el archivo.');
-    } finally {
-      setImporting(false);
-    }
-  }
-
   if (roleGuardStatus !== 'allowed') return null;
 
   return (
@@ -397,13 +339,6 @@ export default function DashboardHome() {
               <button className="btn-primary" onClick={() => void fetchLedger()}>
                 Recargar
               </button>
-            </div>
-            <div style={{ gridColumn: 'span 6', alignSelf: 'end', textAlign: 'right' }}>
-              <a href={`/api/export?businessDate=${businessDate}`} target="_blank" rel="noreferrer">
-                <button className="btn-primary" type="button">
-                  Exportar JSON
-                </button>
-              </a>
             </div>
           </div>
           {error ? <p style={{ color: 'var(--danger)' }}>{error}</p> : null}
@@ -623,37 +558,6 @@ export default function DashboardHome() {
               )}
             </div>
           ) : null}
-        </article>
-
-        <article className="card wide">
-          <h3>Importar TXT/JSON</h3>
-          <form onSubmit={(event) => void importData(event)} className="row" style={{ marginTop: 8 }}>
-            <label style={{ gridColumn: 'span 3' }}>
-              Usuario (admin)
-              <input
-                value={importUserId}
-                onChange={(event) => setImportUserId(event.target.value)}
-                placeholder="admin"
-                required
-              />
-            </label>
-            <label style={{ gridColumn: 'span 7' }}>
-              Archivo
-              <input
-                type="file"
-                accept=".txt,.json,text/plain,application/json"
-                onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
-                required
-              />
-            </label>
-            <div style={{ gridColumn: 'span 2', alignSelf: 'end' }}>
-              <button className="btn-primary" type="submit" disabled={importing}>
-                {importing ? 'Importando...' : 'Importar'}
-              </button>
-            </div>
-          </form>
-          {importSuccess ? <p style={{ color: 'var(--ok)' }}>{importSuccess}</p> : null}
-          {importError ? <p style={{ color: 'var(--danger)' }}>{importError}</p> : null}
         </article>
       </section>
 
