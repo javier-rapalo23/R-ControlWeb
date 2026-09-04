@@ -80,15 +80,16 @@ function formatLongDateEs(businessDate: string) {
   return `${day} ${mes} ${year}`;
 }
 
-// The material name gets its own full-width line (so long names never get
-// truncated); only Lb / Precio-lb / Total share the aligned columns below it.
-// Widths sum to LINE_WIDTH: Lb(6) + gap(1) + Precio/lb(11) + gap(1) + Total(13) = 32
+// Lb / Material / Precio-lb share one row; Total gets its own right-aligned
+// line below so the Material column can be wide enough to fit real material
+// names without truncating. Widths sum to LINE_WIDTH: Lb(6) + gap(1) +
+// Material(16) + gap(1) + Precio/lb(8) = 32
 const ITEM_COL_LB = 6;
-const ITEM_COL_PRECIO = 11;
-const ITEM_COL_TOTAL = 13;
+const ITEM_COL_MATERIAL = 16;
+const ITEM_COL_PRECIO = 8;
 
-function itemNumbersRow(lb: string, precio: string, total: string) {
-  return [padRight(lb, ITEM_COL_LB), padLeft(precio, ITEM_COL_PRECIO), padLeft(total, ITEM_COL_TOTAL)].join(' ');
+function itemHeaderRow(lb: string, material: string, precio: string) {
+  return [padRight(lb, ITEM_COL_LB), padRight(material, ITEM_COL_MATERIAL), padLeft(precio, ITEM_COL_PRECIO)].join(' ');
 }
 
 export type TicketData = {
@@ -117,13 +118,11 @@ export function buildTicketBuffer(data: TicketData): Buffer {
   chunks.push(text(padRight(`Cliente: ${data.clientNombre}`, LINE_WIDTH)));
   chunks.push(text(dash));
 
-  chunks.push(text(itemNumbersRow('Lb', 'P/Lb', 'Total')));
+  chunks.push(text(itemHeaderRow('Lb', 'Material', 'P/Lb')));
   chunks.push(text(doubleDash));
   data.items.forEach((item, index) => {
-    chunks.push(text(item.materialNombre));
-    chunks.push(
-      text(itemNumbersRow(item.libras.toFixed(2), `L${item.precioPorLibra.toFixed(2)}`, `L${item.total.toFixed(2)}`)),
-    );
+    chunks.push(text(itemHeaderRow(item.libras.toFixed(2), item.materialNombre, `L${item.precioPorLibra.toFixed(2)}`)));
+    chunks.push(text(padLeft(`L${item.total.toFixed(2)}`, LINE_WIDTH)));
     if (index < data.items.length - 1) chunks.push(text());
   });
 
