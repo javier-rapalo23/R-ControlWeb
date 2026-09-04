@@ -109,11 +109,12 @@ export function buildTicketBuffer(data: TicketData): Buffer {
   if (data.company.telefono) chunks.push(text(`Tel: ${data.company.telefono}`));
   if (data.company.direccion) chunks.push(text(data.company.direccion));
   chunks.push(charSize(1, 1));
-  chunks.push(align('center'));
 
   chunks.push(text(dash));
-  chunks.push(text(`Fecha: ${formatLongDateEs(data.businessDate)}`));
-  chunks.push(text(`Cliente: ${data.clientNombre}`));
+  // Padded to the full line width so centered alignment has no room to shift
+  // them — they land flush at the start of the line without switching modes.
+  chunks.push(text(padRight(`Fecha: ${formatLongDateEs(data.businessDate)}`, LINE_WIDTH)));
+  chunks.push(text(padRight(`Cliente: ${data.clientNombre}`, LINE_WIDTH)));
   chunks.push(text(dash));
 
   chunks.push(text(itemNumbersRow('Lb', 'P/Lb', 'Total')));
