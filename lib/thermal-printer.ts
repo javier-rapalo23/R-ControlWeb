@@ -107,7 +107,7 @@ export function buildTicketBuffer(data: TicketData): Buffer {
   const dash = '-'.repeat(LINE_WIDTH);
   const doubleDash = '='.repeat(LINE_WIDTH);
   const chunks: Buffer[] = [init(), align('center'), bold(true), charSize(2, 1), text(data.company.nombre || 'R-CONTROL'), bold(false)];
-
+  charSize(1, 1);
   chunks.push(text('Comprobante de Compra'));
   if (data.company.rtn) chunks.push(text(`RTN: ${data.company.rtn}`));
   if (data.company.telefono) chunks.push(text(`Tel: ${data.company.telefono}`));
@@ -115,7 +115,6 @@ export function buildTicketBuffer(data: TicketData): Buffer {
   chunks.push(charSize(1, 1));
   
   chunks.push(text(dash));
-  chunks.push(align('left'));
   chunks.push(text(`Fecha: ${formatLongDateEs(data.businessDate)}`));
   chunks.push(text(`Cliente: ${data.clientNombre}`));
   chunks.push(align('center'));
@@ -145,7 +144,7 @@ export function buildTicketBuffer(data: TicketData): Buffer {
   chunks.push(charSize(1, 1));
   chunks.push(bold(false));
 
-  chunks.push(text(dash));
+  chunks.push(text(doubleDash));
   chunks.push(text('¡Gracias por su visita!'));
   chunks.push(feed(3));
   chunks.push(align('center'));
