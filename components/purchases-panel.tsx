@@ -331,13 +331,7 @@ export default function PurchasesPanel() {
                 Recargar
               </button>
             </div>
-            <div style={{ gridColumn: 'span 7', alignSelf: 'end', textAlign: 'right' }}>
-              <a href={`/api/export?businessDate=${businessDate}`} target="_blank" rel="noreferrer">
-                <button className="btn-primary" type="button">
-                  Exportar JSON
-                </button>
-              </a>
-            </div>
+           
           </div>
           {error ? <p style={{ color: 'var(--danger)' }}>{error}</p> : null}
         </article>
