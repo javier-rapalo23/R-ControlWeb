@@ -31,12 +31,13 @@ function charSize(heightMultiplier: number, widthMultiplier: number) {
   return Buffer.from([GS, 0x21, n]);
 }
 
-function feed(lines: number) {
-  return Buffer.from([ESC, 0x64, lines]);
-}
-
-function cut() {
-  return Buffer.from([GS, 0x56, 0x00]);
+// GS V 65 n — feed n lines then perform a full cut, as a single atomic
+// command. This is more reliable than sending a separate "feed n lines"
+// command followed by a plain cut: some cheap ESC/POS clones don't fully
+// finish the feed motor movement before starting the cut when those are
+// two discrete commands, which cuts through the last printed line(s).
+function cut(feedLines = 4) {
+  return Buffer.from([GS, 0x56, 0x41, feedLines]);
 }
 
 function init() {
@@ -108,7 +109,7 @@ export function buildTicketBuffer(data: TicketData): Buffer {
   if (data.company.telefono) chunks.push(text(`Tel: ${data.company.telefono}`));
   if (data.company.direccion) chunks.push(text(data.company.direccion));
   chunks.push(charSize(1, 1));
-  chunks.push(align('left'));
+  chunks.push(align('center'));
 
   chunks.push(text(dash));
   chunks.push(text(`Fecha: ${formatLongDateEs(data.businessDate)}`));
@@ -135,10 +136,8 @@ export function buildTicketBuffer(data: TicketData): Buffer {
 
   chunks.push(text(doubleDash));
   chunks.push(text('¡Gracias por su visita!'));
-  chunks.push(feed(3));
   chunks.push(align('center'));
-  chunks.push(text(dash));
-  chunks.push(cut());
+  chunks.push(cut(4));
 
   return Buffer.concat(chunks);
 }
@@ -193,8 +192,7 @@ export function buildSummaryBuffer(data: SummaryData): Buffer {
   chunks.push(charSize(1, 1));
   chunks.push(bold(false));
 
-  chunks.push(feed(3));
-  chunks.push(cut());
+  chunks.push(cut(4));
 
   return Buffer.concat(chunks);
 }
