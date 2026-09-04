@@ -44,6 +44,72 @@ function todayDateString() {
   return `${year}-${month}-${day}`;
 }
 
+function formatLocalDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parseLocalDate(dateStr: string) {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+function getWeekDays(dateStr: string) {
+  const date = parseLocalDate(dateStr);
+  const dayOfWeek = date.getDay();
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(date);
+  monday.setDate(date.getDate() + diffToMonday);
+
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return { businessDate: formatLocalDate(d), label: WEEKDAY_LABELS[i], dayNumber: d.getDate() };
+  });
+}
+
+type WeeklyPivotRow = { materialNombre: string; byDay: Record<string, number>; total: number };
+type WeeklyPivot = {
+  days: ReturnType<typeof getWeekDays>;
+  rows: WeeklyPivotRow[];
+  dailyTotals: Record<string, number>;
+  grandTotal: number;
+};
+
+function buildWeeklyPivot(
+  purchases: Array<{ businessDate: string; materialNombre: string; libras: number }>,
+  days: ReturnType<typeof getWeekDays>,
+): WeeklyPivot {
+  const byMaterial: Record<string, WeeklyPivotRow> = {};
+  const dailyTotals: Record<string, number> = {};
+  let grandTotal = 0;
+
+  for (const day of days) {
+    dailyTotals[day.businessDate] = 0;
+  }
+
+  for (const p of purchases) {
+    if (!byMaterial[p.materialNombre]) {
+      byMaterial[p.materialNombre] = { materialNombre: p.materialNombre, byDay: {}, total: 0 };
+    }
+    const row = byMaterial[p.materialNombre];
+    row.byDay[p.businessDate] = (row.byDay[p.businessDate] ?? 0) + p.libras;
+    row.total += p.libras;
+
+    if (p.businessDate in dailyTotals) {
+      dailyTotals[p.businessDate] += p.libras;
+    }
+    grandTotal += p.libras;
+  }
+
+  const rows = Object.values(byMaterial).sort((a, b) => b.total - a.total);
+  return { days, rows, dailyTotals, grandTotal };
+}
+
 export default function DashboardHome() {
   const roleGuardStatus = useRoleGuard((role) => role !== 'comprador', '/purchases');
   const [businessDate, setBusinessDate] = useState(todayDateString());
@@ -66,6 +132,33 @@ export default function DashboardHome() {
   const [company, setCompany] = useState<CompanySettingsDTO | null>(null);
   const [printMode, setPrintMode] = usePrintMode();
   const [printingSummary, setPrintingSummary] = useState(false);
+  const [weeklyPivot, setWeeklyPivot] = useState<WeeklyPivot | null>(null);
+  const [weeklyLoading, setWeeklyLoading] = useState(false);
+  const [weeklyError, setWeeklyError] = useState<string | null>(null);
+
+  const fetchWeeklyPivot = useCallback(async () => {
+    try {
+      setWeeklyLoading(true);
+      setWeeklyError(null);
+      const days = getWeekDays(businessDate);
+      const qs = new URLSearchParams({ from: days[0].businessDate, to: days[6].businessDate });
+      const res = await fetch(`/api/materials/stock?${qs.toString()}`, { cache: 'no-store' });
+      const body = await parseApiResponse<{
+        data?: {
+          purchases?: Array<{ businessDate: string; materialNombre: string; libras: number }>;
+        };
+      }>(res);
+      setWeeklyPivot(buildWeeklyPivot(body.data?.purchases ?? [], days));
+    } catch (err) {
+      setWeeklyError(err instanceof Error ? err.message : 'Error cargando el resumen semanal');
+    } finally {
+      setWeeklyLoading(false);
+    }
+  }, [businessDate]);
+
+  useEffect(() => {
+    void fetchWeeklyPivot();
+  }, [fetchWeeklyPivot]);
 
   const fetchLedger = useCallback(async () => {
     try {
@@ -355,6 +448,64 @@ export default function DashboardHome() {
               ) : null}
             </tbody>
           </table>
+        </article>
+
+        <article className="card wide">
+          <h3>Compras de la semana por material</h3>
+          <p style={{ color: 'var(--text-soft)', fontSize: 13, marginTop: 4 }}>
+            Semana del {weeklyPivot ? weeklyPivot.days[0].businessDate : ''} al{' '}
+            {weeklyPivot ? weeklyPivot.days[6].businessDate : ''} (libras compradas por material y día).
+          </p>
+          {weeklyError ? <p style={{ color: 'var(--danger)' }}>{weeklyError}</p> : null}
+          {weeklyLoading ? <p style={{ color: 'var(--text-soft)' }}>Cargando...</p> : null}
+          {weeklyPivot ? (
+            <div style={{ overflowX: 'auto', marginTop: 8 }}>
+              <table className="table-like">
+                <thead>
+                  <tr>
+                    <th>Material</th>
+                    {weeklyPivot.days.map((day) => (
+                      <th key={day.businessDate} style={{ textAlign: 'right' }}>
+                        {day.label} {day.dayNumber}
+                      </th>
+                    ))}
+                    <th style={{ textAlign: 'right' }}>Total semana</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {weeklyPivot.rows.map((row) => (
+                    <tr key={row.materialNombre}>
+                      <td>{row.materialNombre}</td>
+                      {weeklyPivot.days.map((day) => (
+                        <td key={day.businessDate} style={{ textAlign: 'right' }}>
+                          {row.byDay[day.businessDate] ? row.byDay[day.businessDate].toLocaleString('es-HN') : '—'}
+                        </td>
+                      ))}
+                      <td style={{ textAlign: 'right', fontWeight: 700 }}>{row.total.toLocaleString('es-HN')}</td>
+                    </tr>
+                  ))}
+                  {weeklyPivot.rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={9}>No hay compras registradas esta semana.</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+                {weeklyPivot.rows.length > 0 ? (
+                  <tfoot>
+                    <tr>
+                      <td style={{ fontWeight: 700 }}>Total día</td>
+                      {weeklyPivot.days.map((day) => (
+                        <td key={day.businessDate} style={{ textAlign: 'right', fontWeight: 700 }}>
+                          {weeklyPivot.dailyTotals[day.businessDate].toLocaleString('es-HN')}
+                        </td>
+                      ))}
+                      <td style={{ textAlign: 'right', fontWeight: 700 }}>{weeklyPivot.grandTotal.toLocaleString('es-HN')}</td>
+                    </tr>
+                  </tfoot>
+                ) : null}
+              </table>
+            </div>
+          ) : null}
         </article>
 
         <article className="card wide">
