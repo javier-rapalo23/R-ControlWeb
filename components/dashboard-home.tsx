@@ -527,18 +527,12 @@ export default function DashboardHome() {
                         const cell = weeklyPivot.dailyTotals[day.businessDate];
                         return (
                           <td key={day.businessDate} style={{ textAlign: 'right', fontWeight: 700 }}>
-                            <div>{cell.libras.toLocaleString('es-HN')} lb</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-soft)', fontWeight: 400 }}>
-                              L {cell.monto.toFixed(2)}
-                            </div>
+                            L {cell.monto.toFixed(2)}
                           </td>
                         );
                       })}
                       <td style={{ textAlign: 'right', fontWeight: 700 }}>
-                        <div>{weeklyPivot.grandTotalLibras.toLocaleString('es-HN')} lb</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-soft)', fontWeight: 400 }}>
-                          L {weeklyPivot.grandTotalMonto.toFixed(2)}
-                        </div>
+                        L {weeklyPivot.grandTotalMonto.toFixed(2)}
                       </td>
                     </tr>
                   </tfoot>
