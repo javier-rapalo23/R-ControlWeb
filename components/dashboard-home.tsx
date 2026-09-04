@@ -72,42 +72,56 @@ function getWeekDays(dateStr: string) {
   });
 }
 
-type WeeklyPivotRow = { materialNombre: string; byDay: Record<string, number>; total: number };
+type DayCell = { libras: number; monto: number };
+type WeeklyPivotRow = {
+  materialNombre: string;
+  byDay: Record<string, DayCell>;
+  totalLibras: number;
+  totalMonto: number;
+};
 type WeeklyPivot = {
   days: ReturnType<typeof getWeekDays>;
   rows: WeeklyPivotRow[];
-  dailyTotals: Record<string, number>;
-  grandTotal: number;
+  dailyTotals: Record<string, DayCell>;
+  grandTotalLibras: number;
+  grandTotalMonto: number;
 };
 
 function buildWeeklyPivot(
-  purchases: Array<{ businessDate: string; materialNombre: string; libras: number }>,
+  purchases: Array<{ businessDate: string; materialNombre: string; libras: number; total: number }>,
   days: ReturnType<typeof getWeekDays>,
 ): WeeklyPivot {
   const byMaterial: Record<string, WeeklyPivotRow> = {};
-  const dailyTotals: Record<string, number> = {};
-  let grandTotal = 0;
+  const dailyTotals: Record<string, DayCell> = {};
+  let grandTotalLibras = 0;
+  let grandTotalMonto = 0;
 
   for (const day of days) {
-    dailyTotals[day.businessDate] = 0;
+    dailyTotals[day.businessDate] = { libras: 0, monto: 0 };
   }
 
   for (const p of purchases) {
     if (!byMaterial[p.materialNombre]) {
-      byMaterial[p.materialNombre] = { materialNombre: p.materialNombre, byDay: {}, total: 0 };
+      byMaterial[p.materialNombre] = { materialNombre: p.materialNombre, byDay: {}, totalLibras: 0, totalMonto: 0 };
     }
     const row = byMaterial[p.materialNombre];
-    row.byDay[p.businessDate] = (row.byDay[p.businessDate] ?? 0) + p.libras;
-    row.total += p.libras;
+    const cell = row.byDay[p.businessDate] ?? { libras: 0, monto: 0 };
+    cell.libras += p.libras;
+    cell.monto += p.total;
+    row.byDay[p.businessDate] = cell;
+    row.totalLibras += p.libras;
+    row.totalMonto += p.total;
 
     if (p.businessDate in dailyTotals) {
-      dailyTotals[p.businessDate] += p.libras;
+      dailyTotals[p.businessDate].libras += p.libras;
+      dailyTotals[p.businessDate].monto += p.total;
     }
-    grandTotal += p.libras;
+    grandTotalLibras += p.libras;
+    grandTotalMonto += p.total;
   }
 
-  const rows = Object.values(byMaterial).sort((a, b) => b.total - a.total);
-  return { days, rows, dailyTotals, grandTotal };
+  const rows = Object.values(byMaterial).sort((a, b) => b.totalMonto - a.totalMonto);
+  return { days, rows, dailyTotals, grandTotalLibras, grandTotalMonto };
 }
 
 export default function DashboardHome() {
@@ -145,7 +159,7 @@ export default function DashboardHome() {
       const res = await fetch(`/api/materials/stock?${qs.toString()}`, { cache: 'no-store' });
       const body = await parseApiResponse<{
         data?: {
-          purchases?: Array<{ businessDate: string; materialNombre: string; libras: number }>;
+          purchases?: Array<{ businessDate: string; materialNombre: string; libras: number; total: number }>;
         };
       }>(res);
       setWeeklyPivot(buildWeeklyPivot(body.data?.purchases ?? [], days));
@@ -454,7 +468,7 @@ export default function DashboardHome() {
           <h3>Compras de la semana por material</h3>
           <p style={{ color: 'var(--text-soft)', fontSize: 13, marginTop: 4 }}>
             Semana del {weeklyPivot ? weeklyPivot.days[0].businessDate : ''} al{' '}
-            {weeklyPivot ? weeklyPivot.days[6].businessDate : ''} (libras compradas por material y día).
+            {weeklyPivot ? weeklyPivot.days[6].businessDate : ''} (libras y dinero comprado por material y día).
           </p>
           {weeklyError ? <p style={{ color: 'var(--danger)' }}>{weeklyError}</p> : null}
           {weeklyLoading ? <p style={{ color: 'var(--text-soft)' }}>Cargando...</p> : null}
@@ -476,12 +490,27 @@ export default function DashboardHome() {
                   {weeklyPivot.rows.map((row) => (
                     <tr key={row.materialNombre}>
                       <td>{row.materialNombre}</td>
-                      {weeklyPivot.days.map((day) => (
-                        <td key={day.businessDate} style={{ textAlign: 'right' }}>
-                          {row.byDay[day.businessDate] ? row.byDay[day.businessDate].toLocaleString('es-HN') : '—'}
-                        </td>
-                      ))}
-                      <td style={{ textAlign: 'right', fontWeight: 700 }}>{row.total.toLocaleString('es-HN')}</td>
+                      {weeklyPivot.days.map((day) => {
+                        const cell = row.byDay[day.businessDate];
+                        return (
+                          <td key={day.businessDate} style={{ textAlign: 'right' }}>
+                            {cell ? (
+                              <>
+                                <div>{cell.libras.toLocaleString('es-HN')} lb</div>
+                                <div style={{ fontSize: 11, color: 'var(--text-soft)' }}>L {cell.monto.toFixed(2)}</div>
+                              </>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td style={{ textAlign: 'right', fontWeight: 700 }}>
+                        <div>{row.totalLibras.toLocaleString('es-HN')} lb</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-soft)', fontWeight: 400 }}>
+                          L {row.totalMonto.toFixed(2)}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                   {weeklyPivot.rows.length === 0 ? (
@@ -494,12 +523,23 @@ export default function DashboardHome() {
                   <tfoot>
                     <tr>
                       <td style={{ fontWeight: 700 }}>Total día</td>
-                      {weeklyPivot.days.map((day) => (
-                        <td key={day.businessDate} style={{ textAlign: 'right', fontWeight: 700 }}>
-                          {weeklyPivot.dailyTotals[day.businessDate].toLocaleString('es-HN')}
-                        </td>
-                      ))}
-                      <td style={{ textAlign: 'right', fontWeight: 700 }}>{weeklyPivot.grandTotal.toLocaleString('es-HN')}</td>
+                      {weeklyPivot.days.map((day) => {
+                        const cell = weeklyPivot.dailyTotals[day.businessDate];
+                        return (
+                          <td key={day.businessDate} style={{ textAlign: 'right', fontWeight: 700 }}>
+                            <div>{cell.libras.toLocaleString('es-HN')} lb</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-soft)', fontWeight: 400 }}>
+                              L {cell.monto.toFixed(2)}
+                            </div>
+                          </td>
+                        );
+                      })}
+                      <td style={{ textAlign: 'right', fontWeight: 700 }}>
+                        <div>{weeklyPivot.grandTotalLibras.toLocaleString('es-HN')} lb</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-soft)', fontWeight: 400 }}>
+                          L {weeklyPivot.grandTotalMonto.toFixed(2)}
+                        </div>
+                      </td>
                     </tr>
                   </tfoot>
                 ) : null}
