@@ -131,6 +131,7 @@ export default function DashboardHome() {
   const [company, setCompany] = useState<CompanySettingsDTO | null>(null);
   const [printMode, setPrintMode] = usePrintMode();
   const [printingSummary, setPrintingSummary] = useState(false);
+  const [weekAnchor, setWeekAnchor] = useState(todayDateString());
   const [weeklyPivot, setWeeklyPivot] = useState<WeeklyPivot | null>(null);
   const [weeklyLoading, setWeeklyLoading] = useState(false);
   const [weeklyError, setWeeklyError] = useState<string | null>(null);
@@ -139,7 +140,7 @@ export default function DashboardHome() {
     try {
       setWeeklyLoading(true);
       setWeeklyError(null);
-      const days = getWeekDays(businessDate);
+      const days = getWeekDays(weekAnchor);
       const qs = new URLSearchParams({ from: days[0].businessDate, to: days[6].businessDate });
       const res = await fetch(`/api/materials/stock?${qs.toString()}`, { cache: 'no-store' });
       const body = await parseApiResponse<{
@@ -153,11 +154,17 @@ export default function DashboardHome() {
     } finally {
       setWeeklyLoading(false);
     }
-  }, [businessDate]);
+  }, [weekAnchor]);
 
   useEffect(() => {
     void fetchWeeklyPivot();
   }, [fetchWeeklyPivot]);
+
+  function shiftWeek(deltaWeeks: number) {
+    const current = parseLocalDate(weekAnchor);
+    current.setDate(current.getDate() + deltaWeeks * 7);
+    setWeekAnchor(formatLocalDate(current));
+  }
 
   const fetchLedger = useCallback(async () => {
     try {
@@ -400,7 +407,20 @@ export default function DashboardHome() {
         </article>
 
         <article className="card wide">
-          <h3>Compras de la semana por material</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            <h3>Compras de la semana por material</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button className="btn-secondary" type="button" onClick={() => shiftWeek(-1)}>
+                ◀ Semana anterior
+              </button>
+              <button className="btn-secondary" type="button" onClick={() => setWeekAnchor(todayDateString())}>
+                Esta semana
+              </button>
+              <button className="btn-secondary" type="button" onClick={() => shiftWeek(1)}>
+                Semana siguiente ▶
+              </button>
+            </div>
+          </div>
           <p style={{ color: 'var(--text-soft)', fontSize: 13, marginTop: 4 }}>
             Semana del {weeklyPivot ? weeklyPivot.days[0].businessDate : ''} al{' '}
             {weeklyPivot ? weeklyPivot.days[6].businessDate : ''} (libras y dinero comprado por material y día).
