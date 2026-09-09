@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { handleApiError, success } from '@/lib/api-response';
 import { prisma } from '@/lib/prisma';
 import { parseBusinessDate, toBusinessDateString } from '@/lib/business-date';
+import { computeCurrentStock } from '@/lib/stock';
 
 export async function GET(request: Request) {
   try {
@@ -60,39 +61,8 @@ export async function GET(request: Request) {
       // el orden en que ocurrieron. Una carga sin libras especificadas
       // significa "se envió todo lo que había" y reinicia el saldo a 0.
       if (!from && !to) {
-        const cargas = await prisma.materialCarga.findMany({
-          where: { materialId },
-          orderBy: [{ businessDate: 'asc' }, { createdAt: 'asc' }],
-        });
-
-        type StockEvent = { businessDate: Date; createdAt: Date; kind: 'purchase' | 'carga'; libras: number | null };
-        const events: StockEvent[] = [
-          ...purchases.map((p): StockEvent => ({
-            businessDate: p.businessDate,
-            createdAt: p.createdAt,
-            kind: 'purchase',
-            libras: Number(p.libras),
-          })),
-          ...cargas.map((c): StockEvent => ({
-            businessDate: c.businessDate,
-            createdAt: c.createdAt,
-            kind: 'carga',
-            libras: c.libras !== null ? Number(c.libras) : null,
-          })),
-        ].sort((a, b) => a.businessDate.getTime() - b.businessDate.getTime() || a.createdAt.getTime() - b.createdAt.getTime());
-
-        let balance = 0;
-        for (const event of events) {
-          if (event.kind === 'purchase') {
-            balance += event.libras ?? 0;
-          } else if (event.libras !== null) {
-            balance -= event.libras;
-          } else {
-            balance = 0;
-          }
-        }
-
-        totalLibras = balance;
+        const balances = await computeCurrentStock(materialId);
+        totalLibras = balances.get(materialId) ?? 0;
       }
 
       return success({

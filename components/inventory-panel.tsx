@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { ApiResponse } from '@/types/api';
-import type { MaterialCargaDTO, MaterialDTO, MaterialStockDTO } from '@/types/domain';
+import type { CompanySettingsDTO, MaterialCargaDTO, MaterialDTO, MaterialStockDTO } from '@/types/domain';
+import { usePrintMode } from '@/lib/use-print-mode';
+import { printInventoryInBrowser } from '@/lib/print-html';
 
 async function parseApiResponse<T>(response: Response): Promise<T> {
   const body = (await response.json()) as ApiResponse<T>;
@@ -30,6 +32,9 @@ export default function InventoryPanel() {
   const [cargas, setCargas] = useState<MaterialCargaDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [company, setCompany] = useState<CompanySettingsDTO | null>(null);
+  const [printMode, setPrintMode] = usePrintMode();
+  const [printing, setPrinting] = useState(false);
 
   // Form state
   const [formMaterialId, setFormMaterialId] = useState('');
@@ -92,6 +97,70 @@ export default function InventoryPanel() {
     void fetchAll();
   }, [fetchAll]);
 
+  useEffect(() => {
+    fetch('/api/settings/company', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((body: { ok: boolean; data?: CompanySettingsDTO }) => {
+        if (body.ok && body.data) setCompany(body.data);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  async function printInventory() {
+    try {
+      setError(null);
+      setPrinting(true);
+
+      if (printMode === 'browser') {
+        printInventoryInBrowser({
+          companyNombre: company?.nombre ?? '',
+          generatedAt: todayDateString(),
+          materials: materials.map((mat) => ({
+            materialNombre: mat.nombre,
+            libras: stockMap[mat.id]?.stock?.totalLibras ?? 0,
+          })),
+        });
+        return;
+      }
+
+      if (printMode === 'rawbt') {
+        const { payloadB64 } = await fetch('/api/print/inventory/data', { cache: 'no-store' }).then(
+          parseApiResponse<{ payloadB64: string }>,
+        );
+        window.location.href = `rawbt:base64,${payloadB64}`;
+        return;
+      }
+
+      const { jobId } = await fetch('/api/print/inventory', { method: 'POST' }).then(
+        parseApiResponse<{ jobId: string; status: string }>,
+      );
+
+      const deadline = Date.now() + 20000;
+      let status = 'pending';
+      let jobError: string | null = null;
+
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const job = await fetch(`/api/print/jobs/${jobId}`, { cache: 'no-store' }).then(
+          parseApiResponse<{ status: string; error: string | null }>,
+        );
+        status = job.status;
+        jobError = job.error;
+        if (status === 'done' || status === 'error') break;
+      }
+
+      if (status === 'error') {
+        setError(jobError || 'Error imprimiendo inventario');
+      } else if (status !== 'done') {
+        setError('La impresora no respondió a tiempo. Verifica que esté encendida y conectada a la red.');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error imprimiendo inventario');
+    } finally {
+      setPrinting(false);
+    }
+  }
+
   async function registrarCarga(event: React.FormEvent) {
     event.preventDefault();
     if (!formMaterialId) return;
@@ -132,7 +201,22 @@ export default function InventoryPanel() {
   return (
     <main className="page-shell">
       <section className="hero">
-        <h1>Inventario</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
+          <h1>Inventario</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-soft)' }}>
+              Impresión en este dispositivo
+              <select value={printMode} onChange={(e) => setPrintMode(e.target.value as typeof printMode)}>
+                <option value="queue">Impresora de red (sin vista previa)</option>
+                <option value="rawbt">RawBT (Android)</option>
+                <option value="browser">Diálogo del navegador (con vista previa)</option>
+              </select>
+            </label>
+            <button className="btn-primary" type="button" disabled={printing} onClick={() => void printInventory()}>
+              {printing ? 'Imprimiendo...' : 'Imprimir inventario'}
+            </button>
+          </div>
+        </div>
         <p>
           Stock actual por material: compras acumuladas menos envíos a venta. Registra cuándo mandas a vender un lote
           y solo se rebajará esa cantidad (si dejas las libras en blanco, se asume que se envió todo el stock).

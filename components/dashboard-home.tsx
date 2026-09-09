@@ -6,7 +6,7 @@ import type { ApiResponse } from '@/types/api';
 import type { CompanySettingsDTO, LedgerDTO, MaterialDTO } from '@/types/domain';
 import { useRoleGuard } from '@/lib/use-role-guard';
 import { usePrintMode } from '@/lib/use-print-mode';
-import { printSummaryInBrowser } from '@/lib/print-html';
+import { printSummaryInBrowser, printWeeklySummaryInBrowser } from '@/lib/print-html';
 import rControlLogo from '../R-CONTROL.png';
 
 type DailyStockEntry = { businessDate: string; libras: number };
@@ -135,6 +135,7 @@ export default function DashboardHome() {
   const [weeklyPivot, setWeeklyPivot] = useState<WeeklyPivot | null>(null);
   const [weeklyLoading, setWeeklyLoading] = useState(false);
   const [weeklyError, setWeeklyError] = useState<string | null>(null);
+  const [printingWeekly, setPrintingWeekly] = useState(false);
 
   const fetchWeeklyPivot = useCallback(async () => {
     try {
@@ -164,6 +165,69 @@ export default function DashboardHome() {
     const current = parseLocalDate(weekAnchor);
     current.setDate(current.getDate() + deltaWeeks * 7);
     setWeekAnchor(formatLocalDate(current));
+  }
+
+  async function printWeeklySummary() {
+    if (!weeklyPivot) return;
+    const from = weeklyPivot.days[0].businessDate;
+    const to = weeklyPivot.days[6].businessDate;
+
+    try {
+      setWeeklyError(null);
+      setPrintingWeekly(true);
+
+      if (printMode === 'browser') {
+        printWeeklySummaryInBrowser({
+          companyNombre: company?.nombre ?? '',
+          weekStart: from,
+          weekEnd: to,
+          materials: weeklyPivot.rows.map((row) => ({
+            materialNombre: row.materialNombre,
+            libras: row.totalLibras,
+            total: row.totalMonto,
+          })),
+        });
+        return;
+      }
+
+      if (printMode === 'rawbt') {
+        const { payloadB64 } = await fetch(`/api/print/weekly/data?from=${from}&to=${to}`, {
+          cache: 'no-store',
+        }).then(parseApiResponse<{ payloadB64: string }>);
+        window.location.href = `rawbt:base64,${payloadB64}`;
+        return;
+      }
+
+      const { jobId } = await fetch('/api/print/weekly', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ from, to }),
+      }).then(parseApiResponse<{ jobId: string; status: string }>);
+
+      const deadline = Date.now() + 20000;
+      let status = 'pending';
+      let jobError: string | null = null;
+
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const job = await fetch(`/api/print/jobs/${jobId}`, { cache: 'no-store' }).then(
+          parseApiResponse<{ status: string; error: string | null }>,
+        );
+        status = job.status;
+        jobError = job.error;
+        if (status === 'done' || status === 'error') break;
+      }
+
+      if (status === 'error') {
+        setWeeklyError(jobError || 'Error imprimiendo resumen semanal');
+      } else if (status !== 'done') {
+        setWeeklyError('La impresora no respondió a tiempo. Verifica que esté encendida y conectada a la red.');
+      }
+    } catch (err) {
+      setWeeklyError(err instanceof Error ? err.message : 'Error imprimiendo resumen semanal');
+    } finally {
+      setPrintingWeekly(false);
+    }
   }
 
   const fetchLedger = useCallback(async () => {
@@ -409,7 +473,7 @@ export default function DashboardHome() {
         <article className="card wide">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
             <h3>Compras de la semana por material</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <button className="btn-secondary" type="button" onClick={() => shiftWeek(-1)}>
                 ◀ Semana anterior
               </button>
@@ -418,6 +482,14 @@ export default function DashboardHome() {
               </button>
               <button className="btn-secondary" type="button" onClick={() => shiftWeek(1)}>
                 Semana siguiente ▶
+              </button>
+              <button
+                className="btn-primary"
+                type="button"
+                disabled={printingWeekly || !weeklyPivot}
+                onClick={() => void printWeeklySummary()}
+              >
+                {printingWeekly ? 'Imprimiendo...' : 'Imprimir resumen semanal'}
               </button>
             </div>
           </div>

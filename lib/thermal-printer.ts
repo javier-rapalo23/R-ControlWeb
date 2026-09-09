@@ -197,6 +197,78 @@ export function buildSummaryBuffer(data: SummaryData): Buffer {
   return Buffer.concat(chunks);
 }
 
+export type InventoryData = {
+  company: { nombre: string; rtn: string; telefono: string; direccion: string };
+  generatedAt: string;
+  materials: Array<{ materialNombre: string; libras: number }>;
+};
+
+export function buildInventoryBuffer(data: InventoryData): Buffer {
+  const dash = '-'.repeat(LINE_WIDTH);
+  const chunks: Buffer[] = [init(), align('center'), bold(true), charSize(2, 1), text(data.company.nombre || 'R-CONTROL'), bold(false)];
+  chunks.push(charSize(1, 1));
+
+  chunks.push(text('Inventario - Stock Actual'));
+  chunks.push(text(padRight(`Fecha: ${formatLongDateEs(data.generatedAt)}`, LINE_WIDTH)));
+  chunks.push(text(dash));
+
+  if (data.materials.length === 0) {
+    chunks.push(text('Sin materiales registrados'));
+  }
+  let totalLibras = 0;
+  for (const item of data.materials) {
+    chunks.push(text(item.materialNombre));
+    chunks.push(text(padLeft(`${item.libras.toFixed(2)} lb`, LINE_WIDTH)));
+    totalLibras += item.libras;
+  }
+
+  chunks.push(text(dash));
+  chunks.push(bold(true));
+  chunks.push(text(padLeft(`TOTAL: ${totalLibras.toFixed(2)} lb`, LINE_WIDTH)));
+  chunks.push(bold(false));
+  chunks.push(cut(4));
+
+  return Buffer.concat(chunks);
+}
+
+export type WeeklySummaryData = {
+  company: { nombre: string; rtn: string; telefono: string; direccion: string };
+  weekStart: string;
+  weekEnd: string;
+  materials: Array<{ materialNombre: string; libras: number; total: number }>;
+};
+
+export function buildWeeklySummaryBuffer(data: WeeklySummaryData): Buffer {
+  const dash = '-'.repeat(LINE_WIDTH);
+  const chunks: Buffer[] = [init(), align('center'), bold(true), charSize(2, 1), text(data.company.nombre || 'R-CONTROL'), bold(false)];
+  chunks.push(charSize(1, 1));
+
+  chunks.push(text('Resumen Semanal por Producto'));
+  chunks.push(text(padRight(`Del ${formatLongDateEs(data.weekStart)}`, LINE_WIDTH)));
+  chunks.push(text(padRight(`al ${formatLongDateEs(data.weekEnd)}`, LINE_WIDTH)));
+  chunks.push(text(dash));
+
+  if (data.materials.length === 0) {
+    chunks.push(text('Sin compras registradas'));
+  }
+  let totalLibras = 0;
+  let totalMonto = 0;
+  for (const item of data.materials) {
+    chunks.push(text(item.materialNombre));
+    chunks.push(text(twoColumns(`${item.libras.toFixed(2)} lb`, `L ${item.total.toFixed(2)}`)));
+    totalLibras += item.libras;
+    totalMonto += item.total;
+  }
+
+  chunks.push(text(dash));
+  chunks.push(bold(true));
+  chunks.push(text(twoColumns(`TOTAL: ${totalLibras.toFixed(2)} lb`, `L ${totalMonto.toFixed(2)}`)));
+  chunks.push(bold(false));
+  chunks.push(cut(4));
+
+  return Buffer.concat(chunks);
+}
+
 export function sendToPrinter(ip: string, port: number, buffer: Buffer, timeoutMs = 5000): Promise<void> {
   return new Promise((resolve, reject) => {
     const socket = new Socket();

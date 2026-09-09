@@ -136,3 +136,81 @@ export function printSummaryInBrowser(data: BrowserSummaryData) {
 
   openPrintWindow('Resumen del día', body);
 }
+
+export type BrowserInventoryData = {
+  companyNombre: string;
+  generatedAt: string;
+  materials: Array<{ materialNombre: string; libras: number }>;
+};
+
+export function printInventoryInBrowser(data: BrowserInventoryData) {
+  const totalLibras = data.materials.reduce((sum, m) => sum + m.libras, 0);
+  const rows = data.materials
+    .map((m) => `<tr><td>${m.materialNombre}</td><td class="r">${m.libras.toFixed(2)} lb</td></tr>`)
+    .join('');
+
+  const body = `
+    <h1>${data.companyNombre || 'R-CONTROL'}</h1>
+    <p class="sub">Inventario - Stock Actual</p>
+    <hr class="dash"/>
+    <p>Fecha: ${data.generatedAt}</p>
+    <hr class="dash"/>
+    <table>
+      <thead>
+        <tr>
+          <th>Material</th>
+          <th class="r">Libras</th>
+        </tr>
+      </thead>
+      <tbody>${rows || '<tr><td colspan="2">Sin materiales registrados</td></tr>'}</tbody>
+    </table>
+    <hr class="dash"/>
+    <p class="total">TOTAL: ${totalLibras.toFixed(2)} lb</p>
+  `;
+
+  openPrintWindow('Inventario', body);
+}
+
+export type BrowserWeeklySummaryData = {
+  companyNombre: string;
+  weekStart: string;
+  weekEnd: string;
+  materials: Array<{ materialNombre: string; libras: number; total: number }>;
+};
+
+export function printWeeklySummaryInBrowser(data: BrowserWeeklySummaryData) {
+  const totalLibras = data.materials.reduce((sum, m) => sum + m.libras, 0);
+  const totalMonto = data.materials.reduce((sum, m) => sum + m.total, 0);
+  const rows = data.materials
+    .map(
+      (m) => `
+      <tr>
+        <td>${m.materialNombre}</td>
+        <td class="r">${m.libras.toFixed(2)}</td>
+        <td class="r">L ${m.total.toFixed(2)}</td>
+      </tr>`,
+    )
+    .join('');
+
+  const body = `
+    <h1>${data.companyNombre || 'R-CONTROL'}</h1>
+    <p class="sub">Resumen Semanal por Producto</p>
+    <hr class="dash"/>
+    <p>Semana: ${data.weekStart} al ${data.weekEnd}</p>
+    <hr class="dash"/>
+    <table>
+      <thead>
+        <tr>
+          <th>Material</th>
+          <th class="r">Lb</th>
+          <th class="r">Total</th>
+        </tr>
+      </thead>
+      <tbody>${rows || '<tr><td colspan="3">Sin compras registradas</td></tr>'}</tbody>
+    </table>
+    <hr class="dash"/>
+    <p class="total">TOTAL: ${totalLibras.toFixed(2)} lb / L ${totalMonto.toFixed(2)}</p>
+  `;
+
+  openPrintWindow('Resumen Semanal', body);
+}
