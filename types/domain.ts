@@ -122,3 +122,91 @@ export type LedgerDTO = {
   sales: SaleDTO[];
   expenses: ExpenseDTO[];
 };
+export type SucursalDTO = {
+  id: string;
+  nombre: string;
+  activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type EmployeeDTO = {
+  id: string;
+  sucursalId: string;
+  sucursalNombre: string;
+  nombre: string;
+  puesto: string | null;
+  telefono: string | null;
+  salarioDiario: number;
+  fechaIngreso: string;
+  activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AttendanceDTO = {
+  id: string;
+  businessDate: string;
+  employeeId: string;
+  employeeNombre: string;
+  horaEntrada: string;
+  horaSalida: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type EmployeeAdvanceDTO = {
+  id: string;
+  businessDate: string;
+  employeeId: string;
+  employeeNombre: string;
+  sucursalId: string;
+  sucursalNombre: string;
+  monto: number;
+  montoAplicado: number;
+  pendiente: number;
+  descripcion: string | null;
+  expenseId: string | null;
+  createdAt: string;
+};
+
+export type EmployeePaymentTipo = 'manual' | 'planilla';
+
+export type EmployeePaymentDTO = {
+  id: string;
+  businessDate: string;
+  employeeId: string;
+  employeeNombre: string;
+  sucursalId: string;
+  sucursalNombre: string;
+  tipo: EmployeePaymentTipo;
+  monto: number;
+  descripcion: string | null;
+  periodoInicio: string | null;
+  periodoFin: string | null;
+  diasTrabajados: number | null;
+  subtotal: number | null;
+  adelantosAplicados: number | null;
+  expenseId: string | null;
+  createdAt: string;
+};
+
+export type PayrollRowDTO = {
+  employeeId: string;
+  employeeNombre: string;
+  sucursalId: string;
+  sucursalNombre: string;
+  salarioDiario: number;
+  diasTrabajados: number;
+  subtotal: number;
+  adelantosPendientes: number;
+  adelantosAplicables: number;
+  neto: number;
+  payment: EmployeePaymentDTO | null;
+};
+
+export type PayrollDTO = {
+  periodoInicio: string;
+  periodoFin: string;
+  rows: PayrollRowDTO[];
+};

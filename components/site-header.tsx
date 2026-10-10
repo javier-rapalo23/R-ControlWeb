@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Receipt,
   Package,
+  Users,
   Settings,
   Menu,
   X,
@@ -31,6 +32,7 @@ const navigationItems = [
   { href: '/sales', label: 'Ventas', roles: null, icon: TrendingUp },
   { href: '/expenses', label: 'Reportar gastos', roles: null, icon: Receipt },
   { href: '/inventory', label: 'Inventario', roles: null, icon: Package },
+  { href: '/employees', label: 'Empleados', roles: ['admin', 'editor'], icon: Users },
   { href: '/maintenance', label: 'Mantenimiento', roles: ['admin'], icon: Settings },
 ];
 

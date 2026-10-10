@@ -11,9 +11,17 @@ export async function DELETE(_: Request, { params }: Params) {
     const { id } = await params;
 
     const deleted = await prisma.$transaction(async (tx) => {
-      const existing = await tx.expense.findUnique({ where: { id } });
+      const existing = await tx.expense.findUnique({
+        where: { id },
+        include: { employeePayment: { select: { id: true } }, employeeAdvance: { select: { id: true } } },
+      });
       if (!existing) {
         return null;
+      }
+
+      // Borrarlo aquí dejaría el pago o adelanto sin descontar de la caja.
+      if (existing.employeePayment || existing.employeeAdvance) {
+        throw new Error('Este gasto pertenece a un pago o adelanto de empleado; reviértalo desde Empleados');
       }
 
       await tx.expense.delete({ where: { id } });

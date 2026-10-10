@@ -215,7 +215,10 @@ export async function POST(request: Request) {
         await tx.purchase.deleteMany({ where: { businessDate } });
         await tx.purchaseTransaction.deleteMany({ where: { businessDate } });
         await tx.sale.deleteMany({ where: { businessDate } });
-        await tx.expense.deleteMany({ where: { businessDate } });
+        // Los gastos de pagos y adelantos de empleados se conservan: pertenecen a esos registros.
+        await tx.expense.deleteMany({
+          where: { businessDate, employeePayment: { is: null }, employeeAdvance: { is: null } },
+        });
 
         for (const purchase of ledger.purchases ?? []) {
           const materialNameFromId = purchase.materialId ? mobileIdToName.get(purchase.materialId) : undefined;

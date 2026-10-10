@@ -82,3 +82,70 @@ export const updateUserSchema = z.object({
   role: z.enum(['viewer', 'editor', 'admin', 'comprador']).optional(),
   activo: z.boolean().optional(),
 });
+
+// --- Personal ---
+
+const timeField = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, {
+  message: 'La hora debe usar HH:MM',
+});
+
+const optionalText = (max: number) => z.string().trim().max(max).optional().or(z.literal(''));
+
+export const createSucursalSchema = z.object({
+  nombre: z.string().trim().min(2).max(120),
+});
+
+export const updateSucursalSchema = z.object({
+  nombre: z.string().trim().min(2).max(120).optional(),
+  activo: z.boolean().optional(),
+});
+
+export const createEmployeeSchema = z.object({
+  sucursalId: z.string().min(1),
+  nombre: z.string().trim().min(2).max(120),
+  puesto: optionalText(80),
+  telefono: optionalText(50),
+  salarioDiario: z.number().positive(),
+  fechaIngreso: businessDateField,
+});
+
+export const updateEmployeeSchema = createEmployeeSchema.partial().extend({
+  activo: z.boolean().optional(),
+});
+
+export const upsertAttendanceSchema = z
+  .object({
+    businessDate: businessDateField,
+    employeeId: z.string().min(1),
+    horaEntrada: timeField,
+    horaSalida: timeField.nullable().optional(),
+  })
+  .refine((data) => !data.horaSalida || data.horaSalida > data.horaEntrada, {
+    message: 'La hora de salida debe ser posterior a la de entrada',
+    path: ['horaSalida'],
+  });
+
+export const createEmployeeAdvanceSchema = z.object({
+  businessDate: businessDateField,
+  employeeId: z.string().min(1),
+  sucursalId: z.string().min(1),
+  monto: z.number().positive(),
+  descripcion: optionalText(250),
+});
+
+export const createEmployeePaymentSchema = z.object({
+  businessDate: businessDateField,
+  employeeId: z.string().min(1),
+  sucursalId: z.string().min(1),
+  monto: z.number().positive(),
+  descripcion: optionalText(250),
+});
+
+export const payPayrollSchema = z.object({
+  businessDate: businessDateField,
+  employeeId: z.string().min(1),
+  sucursalId: z.string().min(1),
+  periodoInicio: businessDateField,
+  // Si se omite se descuenta lo máximo posible de los adelantos pendientes.
+  adelantosAplicar: z.number().min(0).optional(),
+});
