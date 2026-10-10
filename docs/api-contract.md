@@ -14,7 +14,7 @@ Propósito: documentar los endpoints disponibles, formato de petición/respuesta
 - Roles: `viewer` < `editor` < `admin`.
   - `GET` normalmente requiere `viewer`.
   - `POST/PUT/PATCH` requieren `editor`.
-  - `DELETE` y rutas sensibles (`/api/import`, `/api/export`, `/api/ledger/initial-balance`) requieren `admin`.
+  - `DELETE` y rutas sensibles (`/api/import`, `/api/ledger/initial-balance`) requieren `admin`.
 - El middleware añade en la respuesta `x-auth-user-id` y `x-auth-role`.
 
 **Variables de entorno relevantes**
@@ -67,9 +67,6 @@ Propósito: documentar los endpoints disponibles, formato de petición/respuesta
 
 - `GET /api/ledger?businessDate=YYYY-MM-DD`  
   - Devuelve el `ledger` (totales, compras, ventas, gastos) para la fecha.
-
-- `GET /api/export?businessDate=YYYY-MM-DD`  
-  - Exporta lote completo (dailyBalances, purchases, sales, expenses, materials, clients, purchaseTransactions, syncEvents).
 
 - `POST /api/import`  
   - Importa payload con `materials` y `ledgers` (ver `app/api/import/route.ts`).

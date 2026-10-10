@@ -34,7 +34,6 @@ Reglas por endpoint/metodo:
 - `GET` requiere rol `viewer` o superior
 - `POST` requiere rol `editor` o superior
 - `DELETE` requiere rol `admin`
-- `GET /api/export` requiere `admin`
 - `POST /api/ledger/initial-balance` requiere `admin`
 - `GET /api/health` es publico
 
@@ -87,7 +86,6 @@ pnpm dev
 - DELETE `/api/purchases/:id`
 - DELETE `/api/sales/:id`
 - DELETE `/api/expenses/:id`
-- GET `/api/export`
 
 ## Importar data historica
 

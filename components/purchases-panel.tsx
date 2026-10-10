@@ -355,7 +355,7 @@ export default function PurchasesPanel() {
           <div className="value"> {transactions.length}</div>
         </article>
 
-        <article className="card half">
+        <article className="card wide">
           <h3>Cliente</h3>
           <form onSubmit={(event) => void createClient(event)} className="row" style={{ marginTop: 8 }}>
             <label style={{ gridColumn: 'span 8' }}>

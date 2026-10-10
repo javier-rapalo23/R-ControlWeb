@@ -208,13 +208,6 @@ export function Dashboard() {
                 Recargar
               </button>
             </div>
-            <div style={{ gridColumn: 'span 6', alignSelf: 'end', textAlign: 'right' }}>
-              <a href={`/api/export?businessDate=${businessDate}`} target="_blank" rel="noreferrer">
-                <button className="btn-primary" type="button">
-                  Exportar JSON
-                </button>
-              </a>
-            </div>
           </div>
           {state.error ? <p style={{ color: 'var(--danger)' }}>{state.error}</p> : null}
         </article>

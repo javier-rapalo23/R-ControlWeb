@@ -23,10 +23,6 @@ function jsonError(status: number, code: string, message: string) {
 }
 
 function requiredRole(pathname: string, method: string): UserRole {
-  if (pathname === '/api/export') {
-    return 'admin';
-  }
-
   if (pathname === '/api/import') {
     return 'admin';
   }
