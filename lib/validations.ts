@@ -91,17 +91,7 @@ const timeField = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, {
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().or(z.literal(''));
 
-export const createSucursalSchema = z.object({
-  nombre: z.string().trim().min(2).max(120),
-});
-
-export const updateSucursalSchema = z.object({
-  nombre: z.string().trim().min(2).max(120).optional(),
-  activo: z.boolean().optional(),
-});
-
 export const createEmployeeSchema = z.object({
-  sucursalId: z.string().min(1),
   nombre: z.string().trim().min(2).max(120),
   puesto: optionalText(80),
   telefono: optionalText(50),
@@ -128,7 +118,6 @@ export const upsertAttendanceSchema = z
 export const createEmployeeAdvanceSchema = z.object({
   businessDate: businessDateField,
   employeeId: z.string().min(1),
-  sucursalId: z.string().min(1),
   monto: z.number().positive(),
   descripcion: optionalText(250),
 });
@@ -136,7 +125,6 @@ export const createEmployeeAdvanceSchema = z.object({
 export const createEmployeePaymentSchema = z.object({
   businessDate: businessDateField,
   employeeId: z.string().min(1),
-  sucursalId: z.string().min(1),
   monto: z.number().positive(),
   descripcion: optionalText(250),
 });
@@ -144,7 +132,6 @@ export const createEmployeePaymentSchema = z.object({
 export const payPayrollSchema = z.object({
   businessDate: businessDateField,
   employeeId: z.string().min(1),
-  sucursalId: z.string().min(1),
   periodoInicio: businessDateField,
   // Si se omite se descuenta lo máximo posible de los adelantos pendientes.
   adelantosAplicar: z.number().min(0).optional(),

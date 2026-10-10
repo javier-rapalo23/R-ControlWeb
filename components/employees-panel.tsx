@@ -8,7 +8,6 @@ import type {
   EmployeeDTO,
   EmployeePaymentDTO,
   PayrollDTO,
-  SucursalDTO,
 } from '@/types/domain';
 import { useRoleGuard } from '@/lib/use-role-guard';
 
@@ -49,19 +48,17 @@ function money(value: number) {
   return `L ${value.toFixed(2)}`;
 }
 
-type Section = 'planilla' | 'asistencia' | 'movimientos' | 'empleados' | 'sucursales';
+type Section = 'planilla' | 'asistencia' | 'movimientos' | 'empleados';
 
 const SECTIONS: Array<{ id: Section; label: string }> = [
   { id: 'planilla', label: 'Planilla' },
   { id: 'asistencia', label: 'Asistencia' },
   { id: 'movimientos', label: 'Adelantos y pagos' },
   { id: 'empleados', label: 'Empleados' },
-  { id: 'sucursales', label: 'Sucursales' },
 ];
 
 type EmployeeForm = {
   nombre: string;
-  sucursalId: string;
   puesto: string;
   telefono: string;
   salarioDiario: string;
@@ -70,7 +67,6 @@ type EmployeeForm = {
 
 const emptyEmployeeForm = (): EmployeeForm => ({
   nombre: '',
-  sucursalId: '',
   puesto: '',
   telefono: '',
   salarioDiario: '',
@@ -81,7 +77,6 @@ type MovementForm = {
   tipo: 'adelanto' | 'pago';
   employeeId: string;
   businessDate: string;
-  sucursalId: string;
   monto: string;
   descripcion: string;
 };
@@ -90,7 +85,6 @@ const emptyMovementForm = (): MovementForm => ({
   tipo: 'adelanto',
   employeeId: '',
   businessDate: todayDateString(),
-  sucursalId: '',
   monto: '',
   descripcion: '',
 });
@@ -103,15 +97,12 @@ export default function EmployeesPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [sucursales, setSucursales] = useState<SucursalDTO[]>([]);
   const [employees, setEmployees] = useState<EmployeeDTO[]>([]);
-  const [sucursalFilter, setSucursalFilter] = useState('');
 
   // --- Planilla ---
   const [weekStart, setWeekStart] = useState(mondayOf(todayDateString()));
   const [payroll, setPayroll] = useState<PayrollDTO | null>(null);
   const [payDate, setPayDate] = useState(todayDateString());
-  const [payCaja, setPayCaja] = useState('');
   const [discounts, setDiscounts] = useState<Record<string, string>>({});
 
   // --- Asistencia ---
@@ -128,15 +119,7 @@ export default function EmployeesPanel() {
   const [employeeForm, setEmployeeForm] = useState<EmployeeForm>(emptyEmployeeForm);
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
 
-  // --- Sucursales ---
-  const [newSucursal, setNewSucursal] = useState('');
-
-  const activeSucursales = useMemo(() => sucursales.filter((s) => s.activo), [sucursales]);
-  const visibleEmployees = useMemo(
-    () => employees.filter((e) => !sucursalFilter || e.sucursalId === sucursalFilter),
-    [employees, sucursalFilter],
-  );
-  const activeEmployees = useMemo(() => visibleEmployees.filter((e) => e.activo), [visibleEmployees]);
+  const activeEmployees = useMemo(() => employees.filter((e) => e.activo), [employees]);
 
   const run = useCallback(async (action: () => Promise<void>, fallback: string) => {
     try {
@@ -151,23 +134,19 @@ export default function EmployeesPanel() {
   }, []);
 
   const fetchBase = useCallback(async () => {
-    const [sucursalesData, employeesData] = await Promise.all([
-      fetch('/api/sucursales', { cache: 'no-store' }).then((res) => parseApiResponse<SucursalDTO[]>(res)),
-      fetch('/api/employees', { cache: 'no-store' }).then((res) => parseApiResponse<EmployeeDTO[]>(res)),
-    ]);
-    setSucursales(sucursalesData);
-    setEmployees(employeesData);
+    const data = await fetch('/api/employees', { cache: 'no-store' }).then((res) =>
+      parseApiResponse<EmployeeDTO[]>(res),
+    );
+    setEmployees(data);
   }, []);
 
   const fetchPayroll = useCallback(async () => {
-    const params = new URLSearchParams({ periodoInicio: weekStart });
-    if (sucursalFilter) params.set('sucursalId', sucursalFilter);
-    const data = await fetch(`/api/payroll?${params}`, { cache: 'no-store' }).then((res) =>
+    const data = await fetch(`/api/payroll?periodoInicio=${weekStart}`, { cache: 'no-store' }).then((res) =>
       parseApiResponse<PayrollDTO>(res),
     );
     setPayroll(data);
     setDiscounts(Object.fromEntries(data.rows.map((row) => [row.employeeId, row.adelantosAplicables.toFixed(2)])));
-  }, [weekStart, sucursalFilter]);
+  }, [weekStart]);
 
   const fetchAttendance = useCallback(async () => {
     const params = new URLSearchParams({ businessDate: attendanceDate });
@@ -219,13 +198,12 @@ export default function EmployeesPanel() {
 
   // --- Planilla ---
 
-  function payEmployee(employeeId: string, sucursalId: string) {
+  function payEmployee(employeeId: string) {
     void run(async () => {
       await send('/api/payroll/pay', 'POST', {
         employeeId,
         periodoInicio: weekStart,
         businessDate: payDate,
-        sucursalId: payCaja || sucursalId,
         adelantosAplicar: Number(discounts[employeeId] || 0),
       });
       await fetchPayroll();
@@ -300,7 +278,6 @@ export default function EmployeesPanel() {
       await send(movementForm.tipo === 'adelanto' ? '/api/employee-advances' : '/api/employee-payments', 'POST', {
         employeeId: employee.id,
         businessDate: movementForm.businessDate,
-        sucursalId: movementForm.sucursalId || employee.sucursalId,
         monto: Number(movementForm.monto),
         descripcion: movementForm.descripcion,
       });
@@ -324,7 +301,6 @@ export default function EmployeesPanel() {
     void run(async () => {
       const body = {
         nombre: employeeForm.nombre,
-        sucursalId: employeeForm.sucursalId,
         puesto: employeeForm.puesto,
         telefono: employeeForm.telefono,
         salarioDiario: Number(employeeForm.salarioDiario),
@@ -345,7 +321,6 @@ export default function EmployeesPanel() {
     setEditingEmployeeId(employee.id);
     setEmployeeForm({
       nombre: employee.nombre,
-      sucursalId: employee.sucursalId,
       puesto: employee.puesto ?? '',
       telefono: employee.telefono ?? '',
       salarioDiario: String(employee.salarioDiario),
@@ -368,32 +343,6 @@ export default function EmployeesPanel() {
     }, 'Error eliminando empleado');
   }
 
-  // --- Sucursales ---
-
-  function createSucursal(event: React.FormEvent) {
-    event.preventDefault();
-    void run(async () => {
-      await send('/api/sucursales', 'POST', { nombre: newSucursal });
-      setNewSucursal('');
-      await fetchBase();
-    }, 'Error creando sucursal');
-  }
-
-  function toggleSucursal(sucursal: SucursalDTO) {
-    void run(async () => {
-      await send(`/api/sucursales/${sucursal.id}`, 'PATCH', { activo: !sucursal.activo });
-      await fetchBase();
-    }, 'Error actualizando sucursal');
-  }
-
-  function removeSucursal(sucursal: SucursalDTO) {
-    if (!window.confirm(`¿Eliminar la sucursal ${sucursal.nombre}?`)) return;
-    void run(async () => {
-      await send(`/api/sucursales/${sucursal.id}`, 'DELETE');
-      await fetchBase();
-    }, 'Error eliminando sucursal');
-  }
-
   if (roleGuardStatus !== 'allowed') {
     return (
       <main className="page-shell">
@@ -401,20 +350,6 @@ export default function EmployeesPanel() {
       </main>
     );
   }
-
-  const sucursalFilterField = (
-    <label style={{ gridColumn: 'span 3' }}>
-      Sucursal
-      <select value={sucursalFilter} onChange={(e) => setSucursalFilter(e.target.value)}>
-        <option value="">Todas</option>
-        {sucursales.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.nombre}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
 
   return (
     <main className="page-shell">
@@ -471,21 +406,9 @@ export default function EmployeesPanel() {
                 onChange={(e) => e.target.value && setWeekStart(mondayOf(e.target.value))}
               />
             </label>
-            {sucursalFilterField}
             <label style={{ gridColumn: 'span 3' }}>
               Fecha de pago
               <input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
-            </label>
-            <label style={{ gridColumn: 'span 3' }}>
-              Caja que paga
-              <select value={payCaja} onChange={(e) => setPayCaja(e.target.value)}>
-                <option value="">Sucursal del empleado</option>
-                {activeSucursales.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nombre}
-                  </option>
-                ))}
-              </select>
             </label>
           </div>
 
@@ -508,10 +431,7 @@ export default function EmployeesPanel() {
                   const descuento = Number(discounts[row.employeeId] || 0);
                   return (
                     <tr key={row.employeeId}>
-                      <td>
-                        {row.employeeNombre}
-                        <div className="sub-num">{row.sucursalNombre}</div>
-                      </td>
+                      <td>{row.employeeNombre}</td>
                       <td className="num">{row.payment ? row.payment.diasTrabajados : row.diasTrabajados}</td>
                       <td className="num">{money(row.salarioDiario)}</td>
                       <td className="num">{money(row.payment ? (row.payment.subtotal ?? 0) : row.subtotal)}</td>
@@ -538,9 +458,7 @@ export default function EmployeesPanel() {
                       <td>
                         {row.payment ? (
                           <>
-                            <div className="sub-num">
-                              Pagado {row.payment.businessDate} · {row.payment.sucursalNombre}
-                            </div>
+                            <div className="sub-num">Pagado {row.payment.businessDate}</div>
                             <button
                               type="button"
                               className="btn-danger"
@@ -554,7 +472,7 @@ export default function EmployeesPanel() {
                             type="button"
                             className="btn-primary"
                             disabled={loading || row.diasTrabajados === 0}
-                            onClick={() => payEmployee(row.employeeId, row.sucursalId)}
+                            onClick={() => payEmployee(row.employeeId)}
                           >
                             Pagar
                           </button>
@@ -597,7 +515,6 @@ export default function EmployeesPanel() {
               Fecha
               <input type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} />
             </label>
-            {sucursalFilterField}
           </div>
 
           <div style={{ overflowX: 'auto', marginTop: 12 }}>
@@ -618,10 +535,7 @@ export default function EmployeesPanel() {
                     <tr key={employee.id}>
                       <td>
                         {employee.nombre}
-                        <div className="sub-num">
-                          {employee.sucursalNombre}
-                          {record ? ' · registrado' : ''}
-                        </div>
+                        {record ? <div className="sub-num">Registrado</div> : null}
                       </td>
                       <td>
                         <input
@@ -694,13 +608,11 @@ export default function EmployeesPanel() {
                   required
                 >
                   <option value="">Seleccione…</option>
-                  {employees
-                    .filter((e) => e.activo)
-                    .map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {e.nombre} — {e.sucursalNombre}
-                      </option>
-                    ))}
+                  {activeEmployees.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.nombre}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label style={{ gridColumn: 'span 4' }}>
@@ -713,20 +625,6 @@ export default function EmployeesPanel() {
                 />
               </label>
               <label style={{ gridColumn: 'span 4' }}>
-                Caja que paga
-                <select
-                  value={movementForm.sucursalId}
-                  onChange={(e) => setMovementForm((f) => ({ ...f, sucursalId: e.target.value }))}
-                >
-                  <option value="">Sucursal del empleado</option>
-                  {activeSucursales.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.nombre}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label style={{ gridColumn: 'span 3' }}>
                 Monto
                 <input
                   type="number"
@@ -737,7 +635,7 @@ export default function EmployeesPanel() {
                   required
                 />
               </label>
-              <label style={{ gridColumn: 'span 5' }}>
+              <label style={{ gridColumn: 'span 8' }}>
                 Descripción
                 <input
                   value={movementForm.descripcion}
@@ -772,10 +670,7 @@ export default function EmployeesPanel() {
                       <td>{advance.businessDate}</td>
                       <td>
                         {advance.employeeNombre}
-                        <div className="sub-num">
-                          Caja {advance.sucursalNombre}
-                          {advance.descripcion ? ` · ${advance.descripcion}` : ''}
-                        </div>
+                        {advance.descripcion ? <div className="sub-num">{advance.descripcion}</div> : null}
                       </td>
                       <td className="num">{money(advance.monto)}</td>
                       <td className="num">{money(advance.montoAplicado)}</td>
@@ -822,10 +717,7 @@ export default function EmployeesPanel() {
                       <td>{payment.businessDate}</td>
                       <td>
                         {payment.employeeNombre}
-                        <div className="sub-num">
-                          Caja {payment.sucursalNombre}
-                          {payment.descripcion ? ` · ${payment.descripcion}` : ''}
-                        </div>
+                        {payment.descripcion ? <div className="sub-num">{payment.descripcion}</div> : null}
                       </td>
                       <td>
                         {payment.tipo === 'planilla' ? 'Planilla' : 'Manual'}
@@ -874,23 +766,6 @@ export default function EmployeesPanel() {
                 />
               </label>
               <label style={{ gridColumn: 'span 6' }}>
-                Sucursal
-                <select
-                  value={employeeForm.sucursalId}
-                  onChange={(e) => setEmployeeForm((f) => ({ ...f, sucursalId: e.target.value }))}
-                  required
-                >
-                  <option value="">Seleccione…</option>
-                  {sucursales
-                    .filter((s) => s.activo || s.id === employeeForm.sucursalId)
-                    .map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.nombre}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <label style={{ gridColumn: 'span 4' }}>
                 Puesto
                 <input
                   value={employeeForm.puesto}
@@ -904,7 +779,7 @@ export default function EmployeesPanel() {
                   onChange={(e) => setEmployeeForm((f) => ({ ...f, telefono: e.target.value }))}
                 />
               </label>
-              <label style={{ gridColumn: 'span 2' }}>
+              <label style={{ gridColumn: 'span 4' }}>
                 Salario diario
                 <input
                   type="number"
@@ -915,7 +790,7 @@ export default function EmployeesPanel() {
                   required
                 />
               </label>
-              <label style={{ gridColumn: 'span 2' }}>
+              <label style={{ gridColumn: 'span 4' }}>
                 Fecha de ingreso
                 <input
                   type="date"
@@ -945,28 +820,12 @@ export default function EmployeesPanel() {
           </section>
 
           <section className="card" style={{ marginTop: 12 }}>
-            <div className="card-head">
-              <h3>Personal</h3>
-              <select
-                value={sucursalFilter}
-                onChange={(e) => setSucursalFilter(e.target.value)}
-                aria-label="Filtrar por sucursal"
-                style={{ maxWidth: 240 }}
-              >
-                <option value="">Todas las sucursales</option>
-                {sucursales.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <h3>Personal</h3>
             <div style={{ overflowX: 'auto', marginTop: 8 }}>
               <table className="table-like">
                 <thead>
                   <tr>
                     <th>Nombre</th>
-                    <th>Sucursal</th>
                     <th className="num">Salario diario</th>
                     <th>Ingreso</th>
                     <th>Estado</th>
@@ -974,7 +833,7 @@ export default function EmployeesPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleEmployees.map((employee) => (
+                  {employees.map((employee) => (
                     <tr key={employee.id} style={employee.activo ? undefined : { opacity: 0.6 }}>
                       <td>
                         {employee.nombre}
@@ -982,7 +841,6 @@ export default function EmployeesPanel() {
                           {[employee.puesto, employee.telefono].filter(Boolean).join(' · ')}
                         </div>
                       </td>
-                      <td>{employee.sucursalNombre}</td>
                       <td className="num">{money(employee.salarioDiario)}</td>
                       <td>{employee.fechaIngreso}</td>
                       <td>{employee.activo ? 'Activo' : 'Inactivo'}</td>
@@ -1001,9 +859,9 @@ export default function EmployeesPanel() {
                       </td>
                     </tr>
                   ))}
-                  {visibleEmployees.length === 0 ? (
+                  {employees.length === 0 ? (
                     <tr>
-                      <td colSpan={6}>No hay empleados registrados.</td>
+                      <td colSpan={5}>No hay empleados registrados.</td>
                     </tr>
                   ) : null}
                 </tbody>
@@ -1011,55 +869,6 @@ export default function EmployeesPanel() {
             </div>
           </section>
         </>
-      ) : null}
-
-      {/* ── SUCURSALES ── */}
-      {section === 'sucursales' ? (
-        <section className="card">
-          <form onSubmit={createSucursal} className="row">
-            <label style={{ gridColumn: 'span 8' }}>
-              Nueva sucursal
-              <input value={newSucursal} onChange={(e) => setNewSucursal(e.target.value)} required />
-            </label>
-            <div style={{ gridColumn: 'span 4', alignSelf: 'end' }}>
-              <button type="submit" className="btn-primary" disabled={loading}>
-                Agregar
-              </button>
-            </div>
-          </form>
-
-          <table className="table-like" style={{ marginTop: 12 }}>
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th className="num">Empleados activos</th>
-                <th>Estado</th>
-                <th>Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sucursales.map((sucursal) => (
-                <tr key={sucursal.id}>
-                  <td>{sucursal.nombre}</td>
-                  <td className="num">
-                    {employees.filter((e) => e.sucursalId === sucursal.id && e.activo).length}
-                  </td>
-                  <td>{sucursal.activo ? 'Activa' : 'Inactiva'}</td>
-                  <td>
-                    <div className="card-actions">
-                      <button type="button" className="btn-secondary" onClick={() => toggleSucursal(sucursal)}>
-                        {sucursal.activo ? 'Desactivar' : 'Activar'}
-                      </button>
-                      <button type="button" className="btn-danger" onClick={() => removeSucursal(sucursal)}>
-                        Eliminar
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
       ) : null}
 
       {loading ? <p className="status-line">Sincronizando…</p> : null}

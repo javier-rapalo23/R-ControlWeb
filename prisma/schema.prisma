@@ -113,20 +113,8 @@ model Expense {
   @@index([businessDate])
 }
 
-model Sucursal {
-  id        String            @id @default(cuid())
-  nombre    String            @unique
-  activo    Boolean           @default(true)
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
-  employees Employee[]
-  advances  EmployeeAdvance[]
-  payments  EmployeePayment[]
-}
-
 model Employee {
   id            String            @id @default(cuid())
-  sucursalId    String
   nombre        String
   puesto        String?
   telefono      String?
@@ -136,15 +124,11 @@ model Employee {
   activo        Boolean           @default(true)
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
-  sucursal      Sucursal          @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
   attendances   Attendance[]
   advances      EmployeeAdvance[]
   payments      EmployeePayment[]
-
-  @@index([sucursalId])
 }
 
-// Sin sucursal propia: la hereda del empleado.
 model Attendance {
   id           String   @id @default(cuid())
   businessDate DateTime @db.Date
@@ -163,16 +147,13 @@ model EmployeeAdvance {
   id            String                      @id @default(cuid())
   businessDate  DateTime                    @db.Date
   employeeId    String
-  // Caja de la que salió el efectivo, no la sucursal del empleado.
-  sucursalId    String
-  monto         Decimal                     @db.Decimal(12, 2)
+  monto        Decimal                     @db.Decimal(12, 2)
   // Cuánto ya se descontó en planillas; nunca supera `monto`.
   montoAplicado Decimal                     @default(0) @db.Decimal(12, 2)
   descripcion   String?
   expenseId     String?                     @unique
   createdAt     DateTime                    @default(now())
   employee      Employee                    @relation(fields: [employeeId], references: [id], onDelete: Restrict)
-  sucursal      Sucursal                    @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
   expense       Expense?                    @relation(fields: [expenseId], references: [id], onDelete: Restrict)
   applications  PayrollAdvanceApplication[]
 
@@ -184,9 +165,7 @@ model EmployeePayment {
   id                 String                      @id @default(cuid())
   businessDate       DateTime                    @db.Date
   employeeId         String
-  // Caja de la que salió el efectivo, no la sucursal del empleado.
-  sucursalId         String
-  tipo               String // manual | planilla
+  tipo              String // manual | planilla
   monto              Decimal                     @db.Decimal(12, 2)
   descripcion        String?
   periodoInicio      DateTime?                   @db.Date
@@ -197,7 +176,6 @@ model EmployeePayment {
   expenseId          String?                     @unique
   createdAt          DateTime                    @default(now())
   employee           Employee                    @relation(fields: [employeeId], references: [id], onDelete: Restrict)
-  sucursal           Sucursal                    @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
   expense            Expense?                    @relation(fields: [expenseId], references: [id], onDelete: Restrict)
   applications       PayrollAdvanceApplication[]
 

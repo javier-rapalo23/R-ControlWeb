@@ -122,18 +122,9 @@ export type LedgerDTO = {
   sales: SaleDTO[];
   expenses: ExpenseDTO[];
 };
-export type SucursalDTO = {
-  id: string;
-  nombre: string;
-  activo: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
 
 export type EmployeeDTO = {
   id: string;
-  sucursalId: string;
-  sucursalNombre: string;
   nombre: string;
   puesto: string | null;
   telefono: string | null;
@@ -160,8 +151,6 @@ export type EmployeeAdvanceDTO = {
   businessDate: string;
   employeeId: string;
   employeeNombre: string;
-  sucursalId: string;
-  sucursalNombre: string;
   monto: number;
   montoAplicado: number;
   pendiente: number;
@@ -177,8 +166,6 @@ export type EmployeePaymentDTO = {
   businessDate: string;
   employeeId: string;
   employeeNombre: string;
-  sucursalId: string;
-  sucursalNombre: string;
   tipo: EmployeePaymentTipo;
   monto: number;
   descripcion: string | null;
@@ -194,8 +181,6 @@ export type EmployeePaymentDTO = {
 export type PayrollRowDTO = {
   employeeId: string;
   employeeNombre: string;
-  sucursalId: string;
-  sucursalNombre: string;
   salarioDiario: number;
   diasTrabajados: number;
   subtotal: number;

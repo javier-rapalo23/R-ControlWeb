@@ -1,7 +1,7 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { parseBusinessDate, toBusinessDateString } from '@/lib/business-date';
 import { recalculateDailyBalance } from '@/lib/ledger';
-import { fromCents, mapPayment, movementInclude, toCents } from '@/lib/employees';
+import { fromCents, mapPayment, employeeNameInclude, toCents } from '@/lib/employees';
 import type { PayrollDTO, PayrollRowDTO } from '@/types/domain';
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
@@ -16,13 +16,6 @@ export function payrollWeek(periodoInicioInput: string) {
   const fin = new Date(inicio);
   fin.setUTCDate(fin.getUTCDate() + 6);
   return { inicio, fin };
-}
-
-export async function assertActiveSucursal(db: DbClient, sucursalId: string) {
-  const sucursal = await db.sucursal.findUnique({ where: { id: sucursalId } });
-  if (!sucursal) throw new Error('Sucursal no encontrada');
-  if (!sucursal.activo) throw new Error('La sucursal está inactiva');
-  return sucursal;
 }
 
 // La asistencia de una semana ya pagada no puede cambiar: desincronizaría la planilla.
@@ -44,21 +37,13 @@ function pendingCents(advance: { monto: Prisma.Decimal; montoAplicado: Prisma.De
   return toCents(advance.monto) - toCents(advance.montoAplicado);
 }
 
-export async function computePayroll(
-  db: DbClient,
-  periodoInicioInput: string,
-  sucursalId?: string,
-): Promise<PayrollDTO> {
+export async function computePayroll(db: DbClient, periodoInicioInput: string): Promise<PayrollDTO> {
   const { inicio, fin } = payrollWeek(periodoInicioInput);
   const inPeriod = { gte: inicio, lte: fin };
 
   // Se incluyen inactivos con asistencia en la semana para no dejar días sin pagar.
   const employees = await db.employee.findMany({
-    where: {
-      ...(sucursalId ? { sucursalId } : {}),
-      OR: [{ activo: true }, { attendances: { some: { businessDate: inPeriod } } }],
-    },
-    include: { sucursal: { select: { nombre: true } } },
+    where: { OR: [{ activo: true }, { attendances: { some: { businessDate: inPeriod } } }] },
     orderBy: { nombre: 'asc' },
   });
   const ids = employees.map((employee) => employee.id);
@@ -74,7 +59,7 @@ export async function computePayroll(
     }),
     db.employeePayment.findMany({
       where: { employeeId: { in: ids }, tipo: 'planilla', periodoInicio: inicio },
-      include: movementInclude,
+      include: employeeNameInclude,
     }),
   ]);
 
@@ -98,8 +83,6 @@ export async function computePayroll(
     return {
       employeeId: employee.id,
       employeeNombre: employee.nombre,
-      sucursalId: employee.sucursalId,
-      sucursalNombre: employee.sucursal.nombre,
       salarioDiario: fromCents(toCents(employee.salarioDiario)),
       diasTrabajados,
       subtotal: fromCents(subtotal),
@@ -122,7 +105,6 @@ export async function payPayroll(
   input: {
     businessDate: string;
     employeeId: string;
-    sucursalId: string;
     periodoInicio: string;
     adelantosAplicar?: number;
   },
@@ -130,7 +112,6 @@ export async function payPayroll(
   const { inicio, fin } = payrollWeek(input.periodoInicio);
   const employee = await tx.employee.findUnique({ where: { id: input.employeeId } });
   if (!employee) throw new Error('Empleado no encontrado');
-  await assertActiveSucursal(tx, input.sucursalId);
 
   const diasTrabajados = await tx.attendance.count({
     where: { employeeId: employee.id, businessDate: { gte: inicio, lte: fin } },
@@ -178,7 +159,6 @@ export async function payPayroll(
     data: {
       businessDate: parseBusinessDate(input.businessDate),
       employeeId: employee.id,
-      sucursalId: input.sucursalId,
       tipo: 'planilla',
       monto: fromCents(neto),
       descripcion: `Planilla ${periodo}`,
@@ -211,7 +191,7 @@ export async function payPayroll(
     await recalculateDailyBalance(tx, input.businessDate);
   }
 
-  return tx.employeePayment.findUniqueOrThrow({ where: { id: payment.id }, include: movementInclude });
+  return tx.employeePayment.findUniqueOrThrow({ where: { id: payment.id }, include: employeeNameInclude });
 }
 
 // Revierte un pago (manual o planilla): devuelve a cada adelanto lo que esta planilla

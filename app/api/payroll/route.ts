@@ -10,7 +10,7 @@ export async function GET(request: Request) {
       return failure('VALIDATION_ERROR', 'periodoInicio es requerido', 400);
     }
 
-    const payroll = await computePayroll(prisma, periodoInicio, searchParams.get('sucursalId') ?? undefined);
+    const payroll = await computePayroll(prisma, periodoInicio);
     return success(payroll);
   } catch (error) {
     return handleApiError(error);

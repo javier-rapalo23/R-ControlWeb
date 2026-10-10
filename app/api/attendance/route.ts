@@ -2,7 +2,7 @@ import { upsertAttendanceSchema } from '@/lib/validations';
 import { failure, handleApiError, success } from '@/lib/api-response';
 import { prisma } from '@/lib/prisma';
 import { parseBusinessDate } from '@/lib/business-date';
-import { attendanceInclude, mapAttendance } from '@/lib/employees';
+import { employeeNameInclude, mapAttendance } from '@/lib/employees';
 import { assertDateNotInPaidPayroll } from '@/lib/payroll';
 
 export async function GET(request: Request) {
@@ -12,7 +12,6 @@ export async function GET(request: Request) {
     const from = searchParams.get('from') ?? businessDate;
     const to = searchParams.get('to') ?? businessDate;
     const employeeId = searchParams.get('employeeId');
-    const sucursalId = searchParams.get('sucursalId');
 
     if (!from || !to) {
       return failure('VALIDATION_ERROR', 'businessDate o from y to son requeridos', 400);
@@ -22,9 +21,8 @@ export async function GET(request: Request) {
       where: {
         businessDate: { gte: parseBusinessDate(from), lte: parseBusinessDate(to) },
         ...(employeeId ? { employeeId } : {}),
-        ...(sucursalId ? { employee: { sucursalId } } : {}),
       },
-      include: attendanceInclude,
+      include: employeeNameInclude,
       orderBy: [{ businessDate: 'asc' }, { horaEntrada: 'asc' }],
     });
 
@@ -55,7 +53,7 @@ export async function POST(request: Request) {
       where: { businessDate_employeeId: { businessDate, employeeId: employee.id } },
       update: data,
       create: { businessDate, employeeId: employee.id, ...data },
-      include: attendanceInclude,
+      include: employeeNameInclude,
     });
 
     return success(mapAttendance(attendance), 201);

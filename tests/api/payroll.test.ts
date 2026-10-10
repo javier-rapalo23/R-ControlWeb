@@ -14,9 +14,6 @@ function buildTx(advances: Array<{ id: string; monto: number; montoAplicado: num
     employee: {
       findUnique: jest.fn().mockResolvedValue({ id: 'emp_1', nombre: 'Ana', salarioDiario: 300 }),
     },
-    sucursal: {
-      findUnique: jest.fn().mockResolvedValue({ id: 'suc_1', activo: true }),
-    },
     attendance: {
       count: jest.fn().mockResolvedValue(5),
     },
@@ -48,7 +45,6 @@ const asTx = (tx: unknown) => tx as Prisma.TransactionClient;
 const baseInput = {
   businessDate: '2026-10-11',
   employeeId: 'emp_1',
-  sucursalId: 'suc_1',
   periodoInicio: '2026-10-05',
 };
 

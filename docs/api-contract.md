@@ -82,31 +82,28 @@ Propósito: documentar los endpoints disponibles, formato de petición/respuesta
 
 ### Personal
 
-Los adelantos y pagos sacan efectivo de la caja: cada uno crea un `Expense` (categorías `Adelanto`, `Pago empleado`, `Planilla`) y recalcula el saldo del día. Ese gasto no se puede borrar desde `DELETE /api/expenses/:id`; se revierte desde el adelanto o el pago. El `sucursalId` de adelantos y pagos es la **caja** que pagó, no la sucursal del empleado.
+Los adelantos y pagos sacan efectivo de la caja: cada uno crea un `Expense` (categorías `Adelanto`, `Pago empleado`, `Planilla`) y recalcula el saldo del día. Ese gasto no se puede borrar desde `DELETE /api/expenses/:id`; se revierte desde el adelanto o el pago.
 
-- `GET /api/sucursales` · `POST /api/sucursales` (`{ nombre }`)
-- `PATCH /api/sucursales/:id` (`{ nombre?, activo? }`) · `DELETE /api/sucursales/:id` (solo sin empleados ni movimientos)
-
-- `GET /api/employees?sucursalId=&activo=true|false`
-- `POST /api/employees` — `{ sucursalId, nombre, puesto?, telefono?, salarioDiario, fechaIngreso }`. `salarioDiario` es el pago por día trabajado.
+- `GET /api/employees?activo=true|false`
+- `POST /api/employees` — `{ nombre, puesto?, telefono?, salarioDiario, fechaIngreso }`. `salarioDiario` es el pago por día trabajado.
 - `PATCH /api/employees/:id` — mismos campos + `activo`.
 - `DELETE /api/employees/:id` — solo si no tiene historial; si lo tiene, desactivarlo.
 
-- `GET /api/attendance?businessDate=YYYY-MM-DD` o `?from=&to=` (+ `employeeId`, `sucursalId` opcionales)
+- `GET /api/attendance?businessDate=YYYY-MM-DD` o `?from=&to=` (+ `employeeId` opcional)
 - `POST /api/attendance` — upsert por (`businessDate`, `employeeId`): `{ businessDate, employeeId, horaEntrada: "HH:MM", horaSalida?: "HH:MM" | null }`.
 - `DELETE /api/attendance/:id`
   - La asistencia de una semana con planilla pagada no se puede crear, cambiar ni borrar.
 
 - `GET /api/employee-advances?employeeId=&from=&to=&pendientes=true`
-- `POST /api/employee-advances` — `{ businessDate, employeeId, sucursalId, monto, descripcion? }`
+- `POST /api/employee-advances` — `{ businessDate, employeeId, monto, descripcion? }`
 - `DELETE /api/employee-advances/:id` — solo si `montoAplicado` es 0.
 
 - `GET /api/employee-payments?employeeId=&tipo=manual|planilla&from=&to=`
-- `POST /api/employee-payments` — pago `manual`: `{ businessDate, employeeId, sucursalId, monto, descripcion? }`
+- `POST /api/employee-payments` — pago `manual`: `{ businessDate, employeeId, monto, descripcion? }`
 - `DELETE /api/employee-payments/:id` — revierte un pago manual o de planilla: devuelve a cada adelanto lo que esa planilla le descontó (`PayrollAdvanceApplication`) y elimina el gasto.
 
-- `GET /api/payroll?periodoInicio=YYYY-MM-DD&sucursalId=` — `periodoInicio` debe ser lunes; la semana va de lunes a domingo. Por empleado: `diasTrabajados` (días con asistencia), `subtotal = días × salarioDiario`, `adelantosPendientes`, `adelantosAplicables = min(subtotal, pendientes)`, `neto` y `payment` si ya se pagó.
-- `POST /api/payroll/pay` — `{ businessDate, employeeId, sucursalId, periodoInicio, adelantosAplicar? }`. Descuenta los adelantos del más antiguo al más nuevo; sin `adelantosAplicar` descuenta el máximo posible. Si el neto es 0 no se crea gasto. Una sola planilla por empleado y semana (409 si se repite).
+- `GET /api/payroll?periodoInicio=YYYY-MM-DD` — `periodoInicio` debe ser lunes; la semana va de lunes a domingo. Por empleado: `diasTrabajados` (días con asistencia), `subtotal = días × salarioDiario`, `adelantosPendientes`, `adelantosAplicables = min(subtotal, pendientes)`, `neto` y `payment` si ya se pagó.
+- `POST /api/payroll/pay` — `{ businessDate, employeeId, periodoInicio, adelantosAplicar? }`. Descuenta los adelantos del más antiguo al más nuevo; sin `adelantosAplicar` descuenta el máximo posible. Si el neto es 0 no se crea gasto. Una sola planilla por empleado y semana (409 si se repite).
 
 ---
 

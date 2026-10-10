@@ -7,28 +7,10 @@ import type {
   EmployeeDTO,
   EmployeePaymentDTO,
   EmployeePaymentTipo,
-  SucursalDTO,
 } from '@/types/domain';
-
-export function mapSucursal(sucursal: {
-  id: string;
-  nombre: string;
-  activo: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}): SucursalDTO {
-  return {
-    ...sucursal,
-    createdAt: sucursal.createdAt.toISOString(),
-    updatedAt: sucursal.updatedAt.toISOString(),
-  };
-}
-
-export const employeeInclude = { sucursal: { select: { nombre: true } } } as const;
 
 export function mapEmployee(employee: {
   id: string;
-  sucursalId: string;
   nombre: string;
   puesto: string | null;
   telefono: string | null;
@@ -37,12 +19,9 @@ export function mapEmployee(employee: {
   activo: boolean;
   createdAt: Date;
   updatedAt: Date;
-  sucursal: { nombre: string };
 }): EmployeeDTO {
   return {
     id: employee.id,
-    sucursalId: employee.sucursalId,
-    sucursalNombre: employee.sucursal.nombre,
     nombre: employee.nombre,
     puesto: employee.puesto,
     telefono: employee.telefono,
@@ -54,7 +33,7 @@ export function mapEmployee(employee: {
   };
 }
 
-export const attendanceInclude = { employee: { select: { nombre: true } } } as const;
+export const employeeNameInclude = { employee: { select: { nombre: true } } } as const;
 
 export function mapAttendance(attendance: {
   id: string;
@@ -78,23 +57,16 @@ export function mapAttendance(attendance: {
   };
 }
 
-export const movementInclude = {
-  employee: { select: { nombre: true } },
-  sucursal: { select: { nombre: true } },
-} as const;
-
 export function mapAdvance(advance: {
   id: string;
   businessDate: Date;
   employeeId: string;
-  sucursalId: string;
   monto: Prisma.Decimal;
   montoAplicado: Prisma.Decimal;
   descripcion: string | null;
   expenseId: string | null;
   createdAt: Date;
   employee: { nombre: string };
-  sucursal: { nombre: string };
 }): EmployeeAdvanceDTO {
   const monto = decimalToNumber(advance.monto);
   const montoAplicado = decimalToNumber(advance.montoAplicado);
@@ -103,8 +75,6 @@ export function mapAdvance(advance: {
     businessDate: toBusinessDateString(advance.businessDate),
     employeeId: advance.employeeId,
     employeeNombre: advance.employee.nombre,
-    sucursalId: advance.sucursalId,
-    sucursalNombre: advance.sucursal.nombre,
     monto,
     montoAplicado,
     pendiente: fromCents(toCents(monto) - toCents(montoAplicado)),
@@ -118,7 +88,6 @@ export function mapPayment(payment: {
   id: string;
   businessDate: Date;
   employeeId: string;
-  sucursalId: string;
   tipo: string;
   monto: Prisma.Decimal;
   descripcion: string | null;
@@ -130,15 +99,12 @@ export function mapPayment(payment: {
   expenseId: string | null;
   createdAt: Date;
   employee: { nombre: string };
-  sucursal: { nombre: string };
 }): EmployeePaymentDTO {
   return {
     id: payment.id,
     businessDate: toBusinessDateString(payment.businessDate),
     employeeId: payment.employeeId,
     employeeNombre: payment.employee.nombre,
-    sucursalId: payment.sucursalId,
-    sucursalNombre: payment.sucursal.nombre,
     tipo: payment.tipo as EmployeePaymentTipo,
     monto: decimalToNumber(payment.monto),
     descripcion: payment.descripcion,
