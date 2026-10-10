@@ -460,7 +460,7 @@ export function Dashboard() {
         </article>
       </section>
 
-      {state.loading ? <p style={{ color: '#fff', marginTop: 12 }}>Sincronizando datos...</p> : null}
+      {state.loading ? <p className="status-line">Sincronizando datos…</p> : null}
     </main>
   );
 }

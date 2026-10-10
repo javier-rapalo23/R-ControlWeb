@@ -204,7 +204,7 @@ export default function InventoryPanel() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
           <h1>Inventario</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-soft)' }}>
+            <label className="inline-field">
               Impresión en este dispositivo
               <select value={printMode} onChange={(e) => setPrintMode(e.target.value as typeof printMode)}>
                 <option value="queue">Impresora de red (sin vista previa)</option>
@@ -337,7 +337,7 @@ export default function InventoryPanel() {
         </article>
       </section>
 
-      {loading ? <p style={{ color: 'var(--text-soft)', marginTop: 12 }}>Sincronizando...</p> : null}
+      {loading ? <p className="status-line">Sincronizando…</p> : null}
     </main>
   );
 }

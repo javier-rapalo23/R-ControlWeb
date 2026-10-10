@@ -55,10 +55,10 @@ export default function LoginPage() {
     <main className="page-shell login-shell">
       <section className="login-card">
         <div className="login-brand">
-          <Image src={rControlLogo} alt="R Control" width={120} height={120} priority />
+          <Image src={rControlLogo} alt="R Control" width={64} height={64} priority />
           <div>
             <h1>Iniciar sesión</h1>
-            <p>Ingresa con tu usuario y contraseña autorizados para acceder al sistema.</p>
+            <p>Usa el usuario y la contraseña que te asignó el administrador.</p>
           </div>
         </div>
 
@@ -76,7 +76,7 @@ export default function LoginPage() {
 
           <label>
             Contraseña
-            <div style={{ position: 'relative' }}>
+            <div className="password-field">
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
@@ -84,33 +84,23 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 autoComplete="current-password"
                 required
-                style={{ paddingRight: 40 }}
               />
               <button
                 type="button"
                 className="password-toggle"
                 onClick={() => setShowPassword((current) => !current)}
                 aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                style={{
-                  position: 'absolute',
-                  right: 10,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  padding: 0,
-                  cursor: 'pointer',
-                  color: 'var(--text-soft)',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
               >
                 {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
               </button>
             </div>
           </label>
 
-          {error ? <p className="login-error">{error}</p> : null}
+          {error ? (
+            <p className="login-error" role="alert">
+              {error}
+            </p>
+          ) : null}
 
           <button className="btn-primary" type="submit" disabled={loading}>
             {loading ? 'Entrando...' : 'Entrar'}

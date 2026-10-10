@@ -383,33 +383,22 @@ export default function PurchasesPanel() {
         <article className="card wide">
           <h3>Agregar item al carrito</h3>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 8, marginTop: 10 }}>
+          <div className="material-grid">
             {materials.map((material) => {
               const selected = itemMaterialId === material.id;
               return (
                 <button
                   key={material.id}
                   type="button"
+                  className={`material-chip${selected ? ' is-selected' : ''}`}
+                  aria-pressed={selected}
                   onClick={() => {
                     setItemMaterialId(material.id);
                     setItemPrice(String(Number(material.precioPorLibra).toFixed(2)));
                   }}
-                  style={{
-                    padding: '12px 10px',
-                    border: `2px solid ${selected ? '#2563eb' : 'var(--border-color)'}`,
-                    borderRadius: 'var(--radius)',
-                    background: selected ? '#eff6ff' : 'var(--surface)',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    transition: 'border-color 0.15s, background 0.15s',
-                  }}
                 >
-                  <div style={{ fontWeight: 600, fontSize: 14, color: selected ? '#1d4ed8' : 'inherit' }}>
-                    {material.nombre}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-soft)', marginTop: 3 }}>
-                    L {Number(material.precioPorLibra).toFixed(2)} / lb
-                  </div>
+                  <span className="material-chip__name">{material.nombre}</span>
+                  <span className="material-chip__price">L {Number(material.precioPorLibra).toFixed(2)} / lb</span>
                 </button>
               );
             })}
@@ -434,22 +423,14 @@ export default function PurchasesPanel() {
 
         <article className="card wide">
           <h3>Carrito de compra</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+          <div className="cart-list">
             {cart.length === 0 ? (
-              <p style={{ color: 'var(--text-soft)', margin: 0 }}>Aún no agregaste items al carrito.</p>
+              <p className="empty-note">Elige un material y agrega las libras para empezar la compra.</p>
             ) : (
               cart.map((item) => {
                 const subtotal = decimalOrZero(item.libras) * decimalOrZero(item.precioPorLibra);
                 return (
-                  <div
-                    key={item.id}
-                    style={{
-                      border: '1px solid var(--border-color)',
-                      borderRadius: 'var(--radius)',
-                      padding: '10px 12px',
-                      background: 'var(--surface-alt)',
-                    }}
-                  >
+                  <div key={item.id} className="cart-item">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                       <strong style={{ fontSize: 14, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.materialNombre}</strong>
                       <button
@@ -480,9 +461,9 @@ export default function PurchasesPanel() {
                           step="0.01"
                         />
                       </label>
-                      <div style={{ flex: '1 1 80px', alignSelf: 'flex-end', paddingBottom: 6 }}>
+                      <div style={{ flex: '1 1 80px', alignSelf: 'flex-end', paddingBottom: 8 }}>
                         <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>Subtotal</div>
-                        <strong>L {subtotal.toFixed(2)}</strong>
+                        <strong className="num">L {subtotal.toFixed(2)}</strong>
                       </div>
                     </div>
                   </div>
@@ -490,8 +471,11 @@ export default function PurchasesPanel() {
               })
             )}
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, gap: 12, flexWrap: 'wrap' }}>
-            <strong>Total carrito: L {cartTotal.toFixed(2)}</strong>
+          <div className="cart-total">
+            <div>
+              <div className="label">Total carrito</div>
+              <strong>L {cartTotal.toFixed(2)}</strong>
+            </div>
             <button className="btn-primary" type="button" onClick={(event) => void saveTransaction(event as unknown as FormEvent)}>
               Guardar compra por cliente
             </button>
@@ -499,9 +483,9 @@ export default function PurchasesPanel() {
         </article>
 
         <article className="card wide">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <div className="card-head">
             <h3>Transacciones del día</h3>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-soft)' }}>
+            <label className="inline-field">
               Impresión en este dispositivo
               <select value={printMode} onChange={(e) => setPrintMode(e.target.value as typeof printMode)}>
                 <option value="queue">Impresora de red (sin vista previa)</option>
@@ -510,8 +494,8 @@ export default function PurchasesPanel() {
               </select>
             </label>
           </div>
-          <div style={{ display: 'grid', gap: 12, marginTop: 8 }}>
-            {transactions.length === 0 ? <p>No hay transacciones registradas para esta fecha.</p> : null}
+          <div style={{ display: 'grid', gap: 12, marginTop: 14 }}>
+            {transactions.length === 0 ? <p className="empty-note">No hay transacciones registradas para esta fecha.</p> : null}
             {transactions.map((transaction) => (
               <article key={transaction.id} className="card" style={{ background: 'var(--surface-alt)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -562,7 +546,7 @@ export default function PurchasesPanel() {
         </article>
       </section>
 
-      {loading ? <p style={{ color: 'var(--text-soft)', marginTop: 12 }}>Sincronizando...</p> : null}
+      {loading ? <p className="status-line">Sincronizando…</p> : null}
     </main>
   );
 }

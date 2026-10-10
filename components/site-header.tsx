@@ -42,32 +42,23 @@ export default function SiteHeader() {
   const [loadingAuth, setLoadingAuth] = useState(false);
   const [theme, setTheme] = useState('light');
   const [mounted, setMounted] = useState(false);
-  // --- LÓGICA DEL TEMA ---
-  
+  // El tema inicial lo aplica el script de app/layout.tsx antes del primer pintado.
+  useEffect(() => {
+    const current = document.documentElement.getAttribute('data-theme');
+    setTheme(current === 'dark' ? 'dark' : 'light');
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
-  setMounted(true); // Avisamos que el componente ya está listo en el cliente
-  
-  const savedTheme = localStorage.getItem('rcontrol-theme');
-  if (savedTheme) {
-    setTheme(savedTheme);
-  } else {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    setTheme(prefersDark ? 'dark' : 'light');
-  }
-}, []);
-useEffect(() => {
-  if (mounted) {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('rcontrol-theme', theme);
-  }
-}, [theme, mounted]);
+    if (mounted) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('rcontrol-theme', theme);
+    }
+  }, [theme, mounted]);
 
-const toggleTheme = () => {
-  setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
-};
-
- 
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
 
   useEffect(() => {
     setIsOpen(false);
@@ -125,7 +116,7 @@ const toggleTheme = () => {
     <aside className="site-sidebar">
       <div className="sidebar-topbar">
         <Link href="/" className="brand brand--link" aria-label="Ir al inicio">
-          <Image src={rControlLogo} width={40} height={40} className="brand-mark" alt="R Control" priority />
+          <Image src={rControlLogo} width={34} height={34} className="brand-mark" alt="" priority />
           <span>R Control</span>
         </Link>
 
@@ -155,7 +146,12 @@ const toggleTheme = () => {
               const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
               const Icon = item.icon;
               return (
-                <Link key={item.href} href={item.href} className={isActive ? 'active' : ''}>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={isActive ? 'active' : ''}
+                  aria-current={isActive ? 'page' : undefined}
+                >
                   <Icon size={18} aria-hidden="true" />
                   <span>{item.label}</span>
                 </Link>
@@ -184,7 +180,13 @@ const toggleTheme = () => {
             )}
           </div>
 
-          <button type="button" className="theme-toggle" aria-label="Cambiar tema" onClick={toggleTheme}>
+          <button
+            type="button"
+            className="theme-toggle"
+            aria-label={theme === 'dark' ? 'Usar tema claro' : 'Usar tema oscuro'}
+            title={theme === 'dark' ? 'Usar tema claro' : 'Usar tema oscuro'}
+            onClick={toggleTheme}
+          >
             {theme === 'dark' ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
           </button>
         </div>

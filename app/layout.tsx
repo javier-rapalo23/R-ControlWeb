@@ -1,31 +1,44 @@
-import type { Metadata } from 'next';
-import { Space_Grotesk, Newsreader } from 'next/font/google';
+import type { Metadata, Viewport } from 'next';
+import { Geist, Geist_Mono } from 'next/font/google';
 import SiteHeader from '@/components/site-header';
 import './globals.css';
 
-const spaceGrotesk = Space_Grotesk({
+const geist = Geist({
   subsets: ['latin'],
-  variable: '--font-space',
+  variable: '--font-sans',
 });
 
-const newsreader = Newsreader({
+const geistMono = Geist_Mono({
   subsets: ['latin'],
-  variable: '--font-news',
+  variable: '--font-mono',
 });
 
 export const metadata: Metadata = {
   title: 'R Control',
   description: 'Control diario de compras, ventas y gastos.',
   icons: {
-    icon: '/icon.png', 
-    apple: '/apple-touch-icon.png', 
+    icon: '/icon.png',
+    apple: '/apple-touch-icon.png',
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#efede7' },
+    { media: '(prefers-color-scheme: dark)', color: '#171816' },
+  ],
+};
+
+// Aplica el tema guardado antes del primer pintado para evitar el parpadeo claro/oscuro.
+const themeInitScript = `(function(){try{var t=localStorage.getItem('rcontrol-theme');if(!t){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`;
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es">
-      <body className={`${spaceGrotesk.variable} ${newsreader.variable}`}>
+    <html lang="es" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
+      <body className={`${geist.variable} ${geistMono.variable}`}>
         <div className="app-shell">
           <SiteHeader />
           <div className="app-content">{children}</div>

@@ -154,7 +154,7 @@ export default function ExpensesPanel() {
         </table>
       </section>
 
-      {loading ? <p style={{ color: 'var(--text-soft)', marginTop: 12 }}>Sincronizando...</p> : null}
+      {loading ? <p className="status-line">Sincronizando…</p> : null}
     </main>
   );
 }

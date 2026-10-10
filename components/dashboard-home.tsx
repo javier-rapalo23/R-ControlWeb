@@ -346,28 +346,18 @@ export default function DashboardHome() {
     if (!items || items.length === 0) return null;
     const max = Math.max(...items.map((i) => i.value), 0);
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+      <div className="bar-list">
         {items.map((item) => {
           const pct = max > 0 ? (item.value / max) * 100 : 0;
           return (
-            <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 130, textAlign: 'right', fontSize: 13, color: 'var(--text-soft)', flexShrink: 0 }}>
+            <div key={item.key} className="bar-list__row">
+              <div className="bar-list__label" title={item.label}>
                 {item.label}
               </div>
-              <div style={{ flex: 1, background: 'var(--border-color)', borderRadius: 4, height: 22 }}>
-                <div
-                  style={{
-                    width: `${pct}%`,
-                    background: 'var(--primary, #2563eb)',
-                    borderRadius: 4,
-                    height: '100%',
-                    transition: 'width 0.4s ease',
-                  }}
-                />
+              <div className="bar-list__track">
+                <div className="bar-list__fill" style={{ width: `${pct}%` }} />
               </div>
-              <div style={{ width: 100, fontSize: 13, flexShrink: 0 }}>
-                {item.value.toLocaleString('es-HN')} lb
-              </div>
+              <div className="bar-list__value">{item.value.toLocaleString('es-HN')} lb</div>
             </div>
           );
         })}
@@ -393,9 +383,9 @@ export default function DashboardHome() {
       <section className="hero hero--brand">
         <Image src={rControlLogo} width={132} height={132} className="hero-logo" alt="R Control" priority />
         <div>
-          <h1>Control Diario — Resumen</h1>
-          {company?.nombre ? <h2 style={{ fontWeight: 600, marginBottom: 2 }}>{company.nombre}</h2> : null}
-          <p>Resumen rápido del día y accesos a los módulos de Compras, Ventas y Gastos.</p>
+          <h1>Resumen del día</h1>
+          {company?.nombre ? <h2>{company.nombre}</h2> : null}
+          <p>Saldo, compras y movimientos de la fecha seleccionada.</p>
         </div>
       </section>
 
@@ -429,10 +419,10 @@ export default function DashboardHome() {
         </article>
 
         <article className="card wide">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <div className="card-head">
             <h3>Resumen de compras del día</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-soft)' }}>
+            <div className="card-actions">
+              <label className="inline-field">
                 Impresión en este dispositivo
                 <select value={printMode} onChange={(e) => setPrintMode(e.target.value as typeof printMode)}>
                   <option value="queue">Impresora de red (sin vista previa)</option>
@@ -445,20 +435,20 @@ export default function DashboardHome() {
               </button>
             </div>
           </div>
-          <table className="table-like" style={{ marginTop: 8 }}>
+          <table className="table-like" style={{ marginTop: 12 }}>
             <thead>
               <tr>
                 <th>Material</th>
-                <th>Libras</th>
-                <th>Total (L)</th>
+                <th className="num">Libras</th>
+                <th className="num">Total (L)</th>
               </tr>
             </thead>
             <tbody>
               {dailyPurchasesSummary.map((item) => (
                 <tr key={item.materialNombre}>
                   <td>{item.materialNombre}</td>
-                  <td>{item.libras.toLocaleString('es-HN')} lb</td>
-                  <td>L {item.total.toFixed(2)}</td>
+                  <td className="num">{item.libras.toLocaleString('es-HN')} lb</td>
+                  <td className="num">L {item.total.toFixed(2)}</td>
                 </tr>
               ))}
               {dailyPurchasesSummary.length === 0 ? (
@@ -471,9 +461,9 @@ export default function DashboardHome() {
         </article>
 
         <article className="card wide">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <div className="card-head">
             <h3>Compras de la semana por material</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <div className="card-actions">
               <button className="btn-secondary" type="button" onClick={() => shiftWeek(-1)}>
                 ◀ Semana anterior
               </button>
@@ -493,12 +483,12 @@ export default function DashboardHome() {
               </button>
             </div>
           </div>
-          <p style={{ color: 'var(--text-soft)', fontSize: 13, marginTop: 4 }}>
+          <p className="muted" style={{ fontSize: 13, margin: '6px 0 0' }}>
             Semana del {weeklyPivot ? weeklyPivot.days[0].businessDate : ''} al{' '}
             {weeklyPivot ? weeklyPivot.days[6].businessDate : ''} (libras y dinero comprado por material y día).
           </p>
           {weeklyError ? <p style={{ color: 'var(--danger)' }}>{weeklyError}</p> : null}
-          {weeklyLoading ? <p style={{ color: 'var(--text-soft)' }}>Cargando...</p> : null}
+          {weeklyLoading ? <p className="status-line">Cargando semana…</p> : null}
           {weeklyPivot ? (
             <div style={{ overflowX: 'auto', marginTop: 8 }}>
               <table className="table-like">
@@ -506,11 +496,11 @@ export default function DashboardHome() {
                   <tr>
                     <th>Material</th>
                     {weeklyPivot.days.map((day) => (
-                      <th key={day.businessDate} style={{ textAlign: 'right' }}>
+                      <th key={day.businessDate} className="num">
                         {day.label} {day.dayNumber}
                       </th>
                     ))}
-                    <th style={{ textAlign: 'right' }}>Total semana</th>
+                    <th className="num">Total semana</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -520,11 +510,11 @@ export default function DashboardHome() {
                       {weeklyPivot.days.map((day) => {
                         const cell = row.byDay[day.businessDate];
                         return (
-                          <td key={day.businessDate} style={{ textAlign: 'right' }}>
+                          <td key={day.businessDate} className="num">
                             {cell ? (
                               <>
                                 <div>{cell.libras.toLocaleString('es-HN')} lb</div>
-                                <div style={{ fontSize: 11, color: 'var(--text-soft)' }}>L {cell.monto.toFixed(2)}</div>
+                                <div className="sub-num">L {cell.monto.toFixed(2)}</div>
                               </>
                             ) : (
                               '—'
@@ -532,9 +522,9 @@ export default function DashboardHome() {
                           </td>
                         );
                       })}
-                      <td style={{ textAlign: 'right', fontWeight: 700 }}>
+                      <td className="num" style={{ fontWeight: 650 }}>
                         <div>{row.totalLibras.toLocaleString('es-HN')} lb</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-soft)', fontWeight: 400 }}>
+                        <div className="sub-num">
                           L {row.totalMonto.toFixed(2)}
                         </div>
                       </td>
@@ -549,16 +539,16 @@ export default function DashboardHome() {
                 {weeklyPivot.rows.length > 0 ? (
                   <tfoot>
                     <tr>
-                      <td style={{ fontWeight: 700 }}>Total día</td>
+                      <td>Total día</td>
                       {weeklyPivot.days.map((day) => {
                         const cell = weeklyPivot.dailyTotals[day.businessDate];
                         return (
-                          <td key={day.businessDate} style={{ textAlign: 'right', fontWeight: 700 }}>
+                          <td key={day.businessDate} className="num" style={{ fontWeight: 650 }}>
                             L {cell.monto.toFixed(2)}
                           </td>
                         );
                       })}
-                      <td style={{ textAlign: 'right', fontWeight: 700 }}>
+                      <td className="num" style={{ fontWeight: 650 }}>
                         L {weeklyPivot.grandTotalMonto.toFixed(2)}
                       </td>
                     </tr>
@@ -653,7 +643,7 @@ export default function DashboardHome() {
         </article>
       </section>
 
-      {loading ? <p style={{ color: 'var(--text-soft)', marginTop: 12 }}>Cargando...</p> : null}
+      {loading ? <p className="status-line">Cargando…</p> : null}
     </main>
   );
 }

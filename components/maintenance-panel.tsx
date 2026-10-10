@@ -415,7 +415,7 @@ export default function MaintenancePanel() {
             Se usan en tickets, recibos y facturas.
           </p>
           {companyError ? <p style={{ color: 'var(--danger)' }}>{companyError}</p> : null}
-          {companySuccess ? <p style={{ color: 'var(--ok, green)' }}>Guardado correctamente.</p> : null}
+          {companySuccess ? <p style={{ color: 'var(--success)' }}>Guardado correctamente.</p> : null}
           <form onSubmit={(e) => void saveCompany(e)} className="row">
             <label style={{ gridColumn: 'span 12' }}>
               Nombre de la empresa
@@ -599,7 +599,7 @@ export default function MaintenancePanel() {
                   background: 'var(--surface-alt)',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <div className="card-head">
                   <strong style={{ fontSize: 15 }}>{role.label}</strong>
                   <code style={{ fontSize: 12, background: 'var(--border-color)', padding: '2px 8px', borderRadius: 4 }}>{role.id}</code>
                 </div>
