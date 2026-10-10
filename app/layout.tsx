@@ -1,17 +1,6 @@
 import type { Metadata, Viewport } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
 import SiteHeader from '@/components/site-header';
 import './globals.css';
-
-const geist = Geist({
-  subsets: ['latin'],
-  variable: '--font-sans',
-});
-
-const geistMono = Geist_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono',
-});
 
 export const metadata: Metadata = {
   title: 'R Control',
@@ -38,7 +27,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className={`${geist.variable} ${geistMono.variable}`}>
+      <body>
         <div className="app-shell">
           <SiteHeader />
           <div className="app-content">{children}</div>
