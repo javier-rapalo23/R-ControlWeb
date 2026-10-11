@@ -71,6 +71,8 @@ export async function buildSummaryForDate(businessDate: string) {
     totalCompras: ledger.totals.totalCompras,
     totalVentas: ledger.totals.totalVentas,
     totalGastos: ledger.totals.totalGastos,
+    totalIngresos: ledger.totals.totalIngresos,
+    totalSalidas: ledger.totals.totalSalidas,
     saldoInicial: ledger.balance.saldoInicial,
     saldoActual: ledger.totals.saldoActual,
   });

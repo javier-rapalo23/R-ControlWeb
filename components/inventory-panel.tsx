@@ -1,16 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { ApiResponse } from '@/types/api';
 import type { CompanySettingsDTO, MaterialCargaDTO, MaterialDTO, MaterialStockDTO } from '@/types/domain';
 import { usePrintMode } from '@/lib/use-print-mode';
 import { printInventoryInBrowser } from '@/lib/print-html';
-
-async function parseApiResponse<T>(response: Response): Promise<T> {
-  const body = (await response.json()) as ApiResponse<T>;
-  if (!body.ok) throw new Error(body.error.message);
-  return body.data;
-}
+import { errorMessage, parseApiResponse, PRINTER_TIMEOUT_MESSAGE } from '@/lib/api-client';
+import { useToast } from '@/components/toast';
 
 function todayDateString() {
   const now = new Date();
@@ -31,7 +26,7 @@ export default function InventoryPanel() {
   const [stockMap, setStockMap] = useState<Record<string, MaterialStock>>({});
   const [cargas, setCargas] = useState<MaterialCargaDTO[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [company, setCompany] = useState<CompanySettingsDTO | null>(null);
   const [printMode, setPrintMode] = usePrintMode();
   const [printing, setPrinting] = useState(false);
@@ -44,7 +39,6 @@ export default function InventoryPanel() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const matsResponse = await fetch('/api/materials', { cache: 'no-store' });
       const mats = await parseApiResponse<MaterialDTO[]>(matsResponse);
@@ -87,11 +81,11 @@ export default function InventoryPanel() {
       allCargas.sort((a, b) => b.businessDate.localeCompare(a.businessDate));
       setCargas(allCargas);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error cargando inventario');
+      toast.error(errorMessage(err), 'No se pudo cargar el inventario');
     } finally {
       setLoading(false);
     }
-  }, [formMaterialId]);
+  }, [formMaterialId, toast]);
 
   useEffect(() => {
     void fetchAll();
@@ -108,7 +102,6 @@ export default function InventoryPanel() {
 
   async function printInventory() {
     try {
-      setError(null);
       setPrinting(true);
 
       if (printMode === 'browser') {
@@ -149,13 +142,15 @@ export default function InventoryPanel() {
         if (status === 'done' || status === 'error') break;
       }
 
-      if (status === 'error') {
-        setError(jobError || 'Error imprimiendo inventario');
+      if (status === 'done') {
+        toast.success('Inventario impreso');
+      } else if (status === 'error') {
+        toast.error(jobError || 'La impresora reportó un error.', 'No se pudo imprimir el inventario');
       } else if (status !== 'done') {
-        setError('La impresora no respondió a tiempo. Verifica que esté encendida y conectada a la red.');
+        toast.error(PRINTER_TIMEOUT_MESSAGE, 'No se pudo imprimir el inventario');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error imprimiendo inventario');
+      toast.error(errorMessage(err), 'No se pudo imprimir el inventario');
     } finally {
       setPrinting(false);
     }
@@ -166,7 +161,6 @@ export default function InventoryPanel() {
     if (!formMaterialId) return;
     try {
       setLoading(true);
-      setError(null);
       await fetch('/api/material-cargas', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -180,9 +174,10 @@ export default function InventoryPanel() {
 
       setFormLibras('');
       setFormDescripcion('');
+      toast.success('Envío a venta registrado');
       await fetchAll();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error registrando envío a venta');
+      toast.error(errorMessage(err), 'No se pudo registrar el envío a venta');
       setLoading(false);
     }
   }
@@ -191,9 +186,10 @@ export default function InventoryPanel() {
     try {
       setLoading(true);
       await fetch(`/api/material-cargas/${id}`, { method: 'DELETE' }).then(parseApiResponse);
+      toast.success('Envío eliminado');
       await fetchAll();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error eliminando carga');
+      toast.error(errorMessage(err), 'No se pudo eliminar el envío');
       setLoading(false);
     }
   }
@@ -224,12 +220,6 @@ export default function InventoryPanel() {
       </section>
 
       <section className="card-grid">
-        {error ? (
-          <article className="card wide">
-            <p style={{ color: 'var(--danger)', margin: 0 }}>{error}</p>
-          </article>
-        ) : null}
-
         {/* Stock cards por material */}
         {materials.map((mat) => {
           const entry = stockMap[mat.id];

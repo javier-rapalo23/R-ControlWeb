@@ -23,6 +23,13 @@ export const setInitialBalanceSchema = z.object({
   saldoInicial: z.number(),
 });
 
+export const createCashMovementSchema = z.object({
+  businessDate: businessDateField,
+  tipo: z.enum(['ingreso', 'salida']),
+  concepto: z.string().trim().min(2).max(250),
+  monto: z.number().positive(),
+});
+
 export const createPurchaseSchema = z.object({
   businessDate: businessDateField,
   materialId: z.string().min(1),

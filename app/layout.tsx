@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import SiteHeader from '@/components/site-header';
+import { ToastProvider } from '@/components/toast';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -28,10 +29,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
-        <div className="app-shell">
-          <SiteHeader />
-          <div className="app-content">{children}</div>
-        </div>
+        <ToastProvider>
+          <div className="app-shell">
+            <SiteHeader />
+            <div className="app-content">{children}</div>
+          </div>
+        </ToastProvider>
       </body>
     </html>
   );

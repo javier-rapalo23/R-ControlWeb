@@ -1,14 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { ApiResponse } from '@/types/api';
 import type { LedgerDTO } from '@/types/domain';
-
-async function parseApiResponse<T>(response: Response): Promise<T> {
-  const body = (await response.json()) as ApiResponse<T>;
-  if (!body.ok) throw new Error(body.error.message);
-  return body.data;
-}
+import { errorMessage, parseApiResponse } from '@/lib/api-client';
+import { useToast } from '@/components/toast';
 
 function todayDateString() {
   const now = new Date();
@@ -22,7 +17,7 @@ export default function ExpensesPanel() {
   const [businessDate, setBusinessDate] = useState(todayDateString());
   const [ledger, setLedger] = useState<LedgerDTO | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const [expenseCategory, setExpenseCategory] = useState('Operativo');
   const [expenseDescription, setExpenseDescription] = useState('');
@@ -34,13 +29,12 @@ export default function ExpensesPanel() {
       const res = await fetch(`/api/ledger?businessDate=${businessDate}`, { cache: 'no-store' });
       const data = await parseApiResponse<LedgerDTO>(res);
       setLedger(data);
-      setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error');
+      toast.error(errorMessage(err), 'No se pudo cargar el día');
     } finally {
       setLoading(false);
     }
-  }, [businessDate]);
+  }, [businessDate, toast]);
 
   useEffect(() => {
     void fetchLedger();
@@ -57,9 +51,10 @@ export default function ExpensesPanel() {
       }).then(parseApiResponse);
       setExpenseDescription('');
       setExpenseAmount('');
+      toast.success('Gasto registrado');
       await fetchLedger();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error creando gasto');
+      toast.error(errorMessage(err), 'No se pudo registrar el gasto');
     } finally {
       setLoading(false);
     }
@@ -69,9 +64,10 @@ export default function ExpensesPanel() {
     try {
       setLoading(true);
       await fetch(`/api/expenses/${id}`, { method: 'DELETE' }).then(parseApiResponse);
+      toast.success('Gasto eliminado');
       await fetchLedger();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error eliminando gasto');
+      toast.error(errorMessage(err), 'No se pudo eliminar el gasto');
     } finally {
       setLoading(false);
     }
@@ -120,7 +116,6 @@ export default function ExpensesPanel() {
 
       <section className="card" style={{ marginTop: 12 }}>
         <h3>Gastos del día</h3>
-        {error ? <p style={{ color: 'var(--danger)' }}>{error}</p> : null}
         <table className="table-like" style={{ marginTop: 8 }}>
           <thead>
             <tr>

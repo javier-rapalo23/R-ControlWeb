@@ -1,6 +1,8 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { parseBusinessDate, toBusinessDateString } from '@/lib/business-date';
 import type {
+  CashMovementDTO,
+  CashMovementTipo,
   DailyBalanceDTO,
   ExpenseDTO,
   LedgerDTO,
@@ -92,6 +94,24 @@ function mapExpense(expense: {
   };
 }
 
+export function mapCashMovement(movement: {
+  id: string;
+  businessDate: Date;
+  tipo: string;
+  concepto: string;
+  monto: Prisma.Decimal;
+  createdAt: Date;
+}): CashMovementDTO {
+  return {
+    id: movement.id,
+    businessDate: toBusinessDateString(movement.businessDate),
+    tipo: movement.tipo as CashMovementTipo,
+    concepto: movement.concepto,
+    monto: decimalToNumber(movement.monto),
+    createdAt: movement.createdAt.toISOString(),
+  };
+}
+
 export async function ensureDailyBalance(db: DbClient, businessDateInput: string) {
   const businessDate = parseBusinessDate(businessDateInput);
 
@@ -110,7 +130,7 @@ export async function recalculateDailyBalance(db: DbClient, businessDateInput: s
   const businessDate = parseBusinessDate(businessDateInput);
   const balance = await ensureDailyBalance(db, businessDateInput);
 
-  const [comprasAgg, ventasAgg, gastosAgg] = await Promise.all([
+  const [comprasAgg, ventasAgg, gastosAgg, movimientosAgg] = await Promise.all([
     db.purchase.aggregate({
       where: { businessDate },
       _sum: { total: true },
@@ -123,13 +143,23 @@ export async function recalculateDailyBalance(db: DbClient, businessDateInput: s
       where: { businessDate },
       _sum: { monto: true },
     }),
+    db.cashMovement.groupBy({
+      by: ['tipo'],
+      where: { businessDate },
+      _sum: { monto: true },
+    }),
   ]);
 
   const totalCompras = decimalToNumber(comprasAgg._sum.total);
   const totalVentas = decimalToNumber(ventasAgg._sum.monto);
   const totalGastos = decimalToNumber(gastosAgg._sum.monto);
+  const sumByTipo = (tipo: string) => decimalToNumber(movimientosAgg.find((row) => row.tipo === tipo)?._sum.monto ?? null);
+  const totalIngresos = sumByTipo('ingreso');
+  const totalSalidas = sumByTipo('salida');
   const saldoInicial = decimalToNumber(balance.saldoInicial);
-  const saldoActual = saldoInicial + totalVentas - totalCompras - totalGastos;
+  // Redondeo a centavos para no arrastrar errores de punto flotante.
+  const saldoActual =
+    Math.round((saldoInicial + totalVentas + totalIngresos - totalCompras - totalGastos - totalSalidas) * 100) / 100;
 
   const updated = await db.dailyBalance.update({
     where: { id: balance.id },
@@ -142,6 +172,8 @@ export async function recalculateDailyBalance(db: DbClient, businessDateInput: s
       totalCompras,
       totalVentas,
       totalGastos,
+      totalIngresos,
+      totalSalidas,
       saldoActual,
     },
   };
@@ -152,10 +184,11 @@ export async function getLedgerByDate(db: DbClient, businessDateInput: string): 
   await ensureDailyBalance(db, businessDateInput);
   const recalculated = await recalculateDailyBalance(db, businessDateInput);
 
-  const [purchases, sales, expenses] = await Promise.all([
+  const [purchases, sales, expenses, cashMovements] = await Promise.all([
     db.purchase.findMany({ where: { businessDate }, orderBy: { createdAt: 'desc' } }),
     db.sale.findMany({ where: { businessDate }, orderBy: { createdAt: 'desc' } }),
     db.expense.findMany({ where: { businessDate }, orderBy: { createdAt: 'desc' } }),
+    db.cashMovement.findMany({ where: { businessDate }, orderBy: { createdAt: 'desc' } }),
   ]);
 
   return {
@@ -165,5 +198,6 @@ export async function getLedgerByDate(db: DbClient, businessDateInput: string): 
     purchases: purchases.map(mapPurchase),
     sales: sales.map(mapSale),
     expenses: expenses.map(mapExpense),
+    cashMovements: cashMovements.map(mapCashMovement),
   };
 }

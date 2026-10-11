@@ -31,6 +31,11 @@ function requiredRole(pathname: string, method: string): UserRole {
     return 'admin';
   }
 
+  // El módulo de caja es solo para administradores, también para consultar.
+  if (pathname.startsWith('/api/cash-movements')) {
+    return 'admin';
+  }
+
   if (method === 'DELETE') {
     return 'admin';
   }
@@ -76,7 +81,7 @@ export function middleware(request: NextRequest) {
     Object.entries(parseAuthUsers(process.env.RBAC_USERS_JSON)).map(([userId, config]) => [userId, config.role]),
   ) as Record<string, UserRole>;
   if (Object.keys(usersByRole).length === 0) {
-    return jsonError(500, 'RBAC_CONFIG_ERROR', 'RBAC_USERS_JSON is empty or invalid');
+    return jsonError(500, 'RBAC_CONFIG_ERROR', 'La configuración de usuarios del servidor no es válida');
   }
 
   // allow x-user-id header or fallback to cookie `rcontrol_user`
@@ -92,17 +97,17 @@ export function middleware(request: NextRequest) {
   }
 
   if (!effectiveUserId) {
-    return jsonError(401, 'UNAUTHORIZED', 'Missing x-user-id header or rcontrol_user cookie');
+    return jsonError(401, 'UNAUTHORIZED', 'Tu sesión expiró. Vuelve a iniciar sesión.');
   }
 
   const userRole = usersByRole[effectiveUserId];
   if (!userRole) {
-    return jsonError(403, 'FORBIDDEN', 'User is not authorized');
+    return jsonError(403, 'FORBIDDEN', 'Tu usuario no tiene acceso al sistema');
   }
 
   const neededRole = requiredRole(pathname, request.method);
   if (roleRank[userRole] < roleRank[neededRole]) {
-    return jsonError(403, 'FORBIDDEN', 'Insufficient role permissions');
+    return jsonError(403, 'FORBIDDEN', 'Tu rol no tiene permiso para realizar esta acción');
   }
 
   const response = NextResponse.next();

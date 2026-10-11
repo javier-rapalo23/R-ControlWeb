@@ -9,10 +9,10 @@ export async function POST(request: Request) {
     const password = String(body.password ?? '').trim();
 
     if (!userId) {
-      return NextResponse.json({ ok: false, error: { code: 'INVALID', message: 'userId is required' } }, { status: 400 });
+      return NextResponse.json({ ok: false, error: { code: 'INVALID', message: 'Ingresa tu usuario.' } }, { status: 400 });
     }
     if (!password) {
-      return NextResponse.json({ ok: false, error: { code: 'INVALID', message: 'password is required' } }, { status: 400 });
+      return NextResponse.json({ ok: false, error: { code: 'INVALID', message: 'Ingresa tu contraseña.' } }, { status: 400 });
     }
 
     // Check DB users first, then fall back to env vars

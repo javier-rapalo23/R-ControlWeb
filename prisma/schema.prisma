@@ -113,6 +113,19 @@ model Expense {
   @@index([businessDate])
 }
 
+// Entradas y salidas de efectivo que no son ventas, compras ni gastos
+// (aportes del dueño, retiros, depósitos al banco...).
+model CashMovement {
+  id           String   @id @default(cuid())
+  businessDate DateTime @db.Date
+  tipo         String // ingreso | salida
+  concepto     String
+  monto        Decimal  @db.Decimal(12, 2)
+  createdAt    DateTime @default(now())
+
+  @@index([businessDate])
+}
+
 model Employee {
   id            String            @id @default(cuid())
   nombre        String

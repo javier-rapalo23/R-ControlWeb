@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import type { ApiResponse } from '@/types/api';
 import type { ClientDTO, CompanySettingsDTO, LedgerDTO, MaterialDTO, PurchaseTransactionDTO } from '@/types/domain';
 import { usePrintMode } from '@/lib/use-print-mode';
 import { printTicketInBrowser } from '@/lib/print-html';
+import { errorMessage, parseApiResponse, PRINTER_TIMEOUT_MESSAGE } from '@/lib/api-client';
+import { useToast } from '@/components/toast';
 
 type CartItem = {
   id: string;
@@ -13,12 +14,6 @@ type CartItem = {
   libras: string;
   precioPorLibra: string;
 };
-
-async function parseApiResponse<T>(response: Response): Promise<T> {
-  const body = (await response.json()) as ApiResponse<T>;
-  if (!body.ok) throw new Error(body.error.message);
-  return body.data;
-}
 
 function todayDateString() {
   const now = new Date();
@@ -41,15 +36,13 @@ export default function PurchasesPanel() {
   const [transactions, setTransactions] = useState<PurchaseTransactionDTO[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [printingId, setPrintingId] = useState<string | null>(null);
   const [printMode, setPrintMode] = usePrintMode();
   const [company, setCompany] = useState<CompanySettingsDTO | null>(null);
 
   const [selectedClientId, setSelectedClientId] = useState('');
   const [newClientName, setNewClientName] = useState('');
-
-  const [saldoInicial, setSaldoInicial] = useState('');
 
   const [itemMaterialId, setItemMaterialId] = useState('');
   const [itemLibras, setItemLibras] = useState('');
@@ -80,7 +73,6 @@ export default function PurchasesPanel() {
     const response = await fetch(`/api/ledger?businessDate=${businessDate}`, { cache: 'no-store' });
     const data = await parseApiResponse<LedgerDTO>(response);
     setLedger(data);
-    setSaldoInicial(data.balance.saldoInicial.toFixed(2));
   }, [businessDate]);
 
   const fetchTransactions = useCallback(async () => {
@@ -92,14 +84,13 @@ export default function PurchasesPanel() {
   const refresh = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
       await Promise.all([fetchMaterials(), fetchClients(), fetchLedger(), fetchTransactions()]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error sincronizando compras');
+      toast.error(errorMessage(err), 'No se pudieron cargar las compras');
     } finally {
       setLoading(false);
     }
-  }, [fetchClients, fetchLedger, fetchMaterials, fetchTransactions]);
+  }, [fetchClients, fetchLedger, fetchMaterials, fetchTransactions, toast]);
 
   useEffect(() => {
     void refresh();
@@ -137,8 +128,9 @@ export default function PurchasesPanel() {
       setClients((current) => [client, ...current]);
       setSelectedClientId(client.id);
       setNewClientName('');
+      toast.success(`Cliente ${client.nombre} creado`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error creando cliente');
+      toast.error(errorMessage(err), 'No se pudo crear el cliente');
     } finally {
       setLoading(false);
     }
@@ -149,7 +141,7 @@ export default function PurchasesPanel() {
 
     const material = materials.find((entry) => entry.id === itemMaterialId);
     if (!material) {
-      setError('Selecciona un material válido');
+      toast.error('Elige un material de la lista.', 'Selecciona un material válido');
       return;
     }
 
@@ -182,18 +174,17 @@ export default function PurchasesPanel() {
     event.preventDefault();
 
     if (!selectedClientId) {
-      setError('Selecciona un cliente');
+      toast.error('Elige el cliente de esta compra.', 'Selecciona un cliente');
       return;
     }
 
     if (cart.length === 0) {
-      setError('Agrega al menos un item al carrito');
+      toast.error('El carrito está vacío.', 'Agrega al menos un material');
       return;
     }
 
     try {
       setLoading(true);
-      setError(null);
       await fetch('/api/purchase-transactions', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -209,26 +200,10 @@ export default function PurchasesPanel() {
       }).then(parseApiResponse);
 
       setCart([]);
+      toast.success('Compra guardada');
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error guardando compra por cliente');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function saveSaldoInicial() {
-    try {
-      setLoading(true);
-      setError(null);
-      await fetch('/api/ledger/initial-balance', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ businessDate, saldoInicial: Number(saldoInicial) }),
-      }).then(parseApiResponse);
-      await refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error guardando saldo inicial');
+      toast.error(errorMessage(err), 'No se pudo guardar la compra');
     } finally {
       setLoading(false);
     }
@@ -236,7 +211,6 @@ export default function PurchasesPanel() {
 
   async function printTicket(transaction: PurchaseTransactionDTO) {
     try {
-      setError(null);
       setPrintingId(transaction.id);
 
       if (printMode === 'browser') {
@@ -288,13 +262,15 @@ export default function PurchasesPanel() {
         if (status === 'done' || status === 'error') break;
       }
 
-      if (status === 'error') {
-        setError(jobError || 'Error imprimiendo ticket');
+      if (status === 'done') {
+        toast.success('Ticket impreso');
+      } else if (status === 'error') {
+        toast.error(jobError || 'La impresora reportó un error.', 'No se pudo imprimir el ticket');
       } else if (status !== 'done') {
-        setError('La impresora no respondió a tiempo. Verifica que esté encendida y conectada a la red.');
+        toast.error(PRINTER_TIMEOUT_MESSAGE, 'No se pudo imprimir el ticket');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error imprimiendo ticket');
+      toast.error(errorMessage(err), 'No se pudo imprimir el ticket');
     } finally {
       setPrintingId(null);
     }
@@ -305,8 +281,9 @@ export default function PurchasesPanel() {
       setLoading(true);
       await fetch(`/api/purchase-transactions/${id}`, { method: 'DELETE' }).then(parseApiResponse);
       await refresh();
+      toast.success('Compra eliminada');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error eliminando transacción');
+      toast.error(errorMessage(err), 'No se pudo eliminar la compra');
     } finally {
       setLoading(false);
     }
@@ -320,7 +297,7 @@ export default function PurchasesPanel() {
       </section>
 
       <section className="card-grid">
-        <article className="card half">
+        <article className="card wide">
           <div className="row">
             <label style={{ gridColumn: 'span 3' }}>
               Fecha de negocio
@@ -331,16 +308,7 @@ export default function PurchasesPanel() {
                 Recargar
               </button>
             </div>
-           
           </div>
-          {error ? <p style={{ color: 'var(--danger)' }}>{error}</p> : null}
-        </article>
-        <article className="card half">
-          <div className="label">Saldo Inicial</div>
-          <input value={saldoInicial} onChange={(event) => setSaldoInicial(event.target.value)} type="number" step="0.01" />
-          <button className="btn-primary" type="button" onClick={() => void saveSaldoInicial()} style={{ marginTop: 8 }}>
-            Guardar
-          </button>
         </article>
         <article className="card third kpi">
           <div className="label">Saldo actual</div>

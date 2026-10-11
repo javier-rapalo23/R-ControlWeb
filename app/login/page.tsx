@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import rControlLogo from '../../R-CONTROL.png';
+import { errorMessage } from '@/lib/api-client';
+import { useToast } from '@/components/toast';
 
 type LoginResponse =
   | {
@@ -21,12 +23,11 @@ export default function LoginPage() {
   const [userId, setUserId] = useState('admin');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
     setLoading(true);
 
     try {
@@ -45,7 +46,7 @@ export default function LoginPage() {
       router.replace(body.data.role === 'comprador' ? '/purchases' : '/');
       router.refresh();
     } catch (loginError) {
-      setError(loginError instanceof Error ? loginError.message : 'No se pudo iniciar sesión');
+      toast.error(errorMessage(loginError, 'Revisa tu usuario y contraseña.'), 'No se pudo iniciar sesión');
     } finally {
       setLoading(false);
     }
@@ -95,12 +96,6 @@ export default function LoginPage() {
               </button>
             </div>
           </label>
-
-          {error ? (
-            <p className="login-error" role="alert">
-              {error}
-            </p>
-          ) : null}
 
           <button className="btn-primary" type="submit" disabled={loading}>
             {loading ? 'Entrando...' : 'Entrar'}

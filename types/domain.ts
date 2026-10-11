@@ -116,11 +116,25 @@ export type LedgerDTO = {
     totalCompras: number;
     totalVentas: number;
     totalGastos: number;
+    totalIngresos: number;
+    totalSalidas: number;
     saldoActual: number;
   };
   purchases: PurchaseDTO[];
   sales: SaleDTO[];
   expenses: ExpenseDTO[];
+  cashMovements: CashMovementDTO[];
+};
+
+export type CashMovementTipo = 'ingreso' | 'salida';
+
+export type CashMovementDTO = {
+  id: string;
+  businessDate: string;
+  tipo: CashMovementTipo;
+  concepto: string;
+  monto: number;
+  createdAt: string;
 };
 
 export type EmployeeDTO = {

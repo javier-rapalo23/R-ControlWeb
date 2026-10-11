@@ -2,11 +2,12 @@
 
 import Image from 'next/image';
 import { useCallback, useEffect, useState } from 'react';
-import type { ApiResponse } from '@/types/api';
 import type { CompanySettingsDTO, LedgerDTO, MaterialDTO } from '@/types/domain';
 import { useRoleGuard } from '@/lib/use-role-guard';
 import { usePrintMode } from '@/lib/use-print-mode';
 import { printSummaryInBrowser, printWeeklySummaryInBrowser } from '@/lib/print-html';
+import { errorMessage, parseApiResponse, PRINTER_TIMEOUT_MESSAGE } from '@/lib/api-client';
+import { useToast } from '@/components/toast';
 import rControlLogo from '../R-CONTROL.png';
 
 type DailyStockEntry = { businessDate: string; libras: number };
@@ -19,12 +20,6 @@ type StockResult = {
     materials?: MaterialStockSummary[];
   };
 };
-
-async function parseApiResponse<T>(response: Response): Promise<T> {
-  const body = (await response.json()) as ApiResponse<T>;
-  if (!body.ok) throw new Error(body.error.message);
-  return body.data;
-}
 
 function todayDateString() {
   const now = new Date();
@@ -119,12 +114,11 @@ export default function DashboardHome() {
   const [businessDate, setBusinessDate] = useState(todayDateString());
   const [ledger, setLedger] = useState<LedgerDTO | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [materialQuery, setMaterialQuery] = useState<string>('');
   const [fromDate, setFromDate] = useState<string>('2026-05-25');
   const [toDate, setToDate] = useState<string>(todayDateString());
   const [stockLoading, setStockLoading] = useState(false);
-  const [stockError, setStockError] = useState<string | null>(null);
   const [stockResult, setStockResult] = useState<StockResult | null>(null);
   const [materials, setMaterials] = useState<MaterialDTO[]>([]);
   const [materialsLoading, setMaterialsLoading] = useState(false);
@@ -134,13 +128,11 @@ export default function DashboardHome() {
   const [weekAnchor, setWeekAnchor] = useState(todayDateString());
   const [weeklyPivot, setWeeklyPivot] = useState<WeeklyPivot | null>(null);
   const [weeklyLoading, setWeeklyLoading] = useState(false);
-  const [weeklyError, setWeeklyError] = useState<string | null>(null);
   const [printingWeekly, setPrintingWeekly] = useState(false);
 
   const fetchWeeklyPivot = useCallback(async () => {
     try {
       setWeeklyLoading(true);
-      setWeeklyError(null);
       const days = getWeekDays(weekAnchor);
       const qs = new URLSearchParams({ from: days[0].businessDate, to: days[6].businessDate });
       const res = await fetch(`/api/materials/stock?${qs.toString()}`, { cache: 'no-store' });
@@ -151,11 +143,11 @@ export default function DashboardHome() {
       }>(res);
       setWeeklyPivot(buildWeeklyPivot(body.data?.purchases ?? [], days));
     } catch (err) {
-      setWeeklyError(err instanceof Error ? err.message : 'Error cargando el resumen semanal');
+      toast.error(errorMessage(err), 'No se pudo cargar el resumen semanal');
     } finally {
       setWeeklyLoading(false);
     }
-  }, [weekAnchor]);
+  }, [weekAnchor, toast]);
 
   useEffect(() => {
     void fetchWeeklyPivot();
@@ -173,7 +165,6 @@ export default function DashboardHome() {
     const to = weeklyPivot.days[6].businessDate;
 
     try {
-      setWeeklyError(null);
       setPrintingWeekly(true);
 
       if (printMode === 'browser') {
@@ -218,13 +209,15 @@ export default function DashboardHome() {
         if (status === 'done' || status === 'error') break;
       }
 
-      if (status === 'error') {
-        setWeeklyError(jobError || 'Error imprimiendo resumen semanal');
+      if (status === 'done') {
+        toast.success('Resumen semanal impreso');
+      } else if (status === 'error') {
+        toast.error(jobError || 'La impresora reportó un error.', 'No se pudo imprimir el resumen semanal');
       } else if (status !== 'done') {
-        setWeeklyError('La impresora no respondió a tiempo. Verifica que esté encendida y conectada a la red.');
+        toast.error(PRINTER_TIMEOUT_MESSAGE, 'No se pudo imprimir el resumen semanal');
       }
     } catch (err) {
-      setWeeklyError(err instanceof Error ? err.message : 'Error imprimiendo resumen semanal');
+      toast.error(errorMessage(err), 'No se pudo imprimir el resumen semanal');
     } finally {
       setPrintingWeekly(false);
     }
@@ -236,13 +229,12 @@ export default function DashboardHome() {
       const res = await fetch(`/api/ledger?businessDate=${businessDate}`, { cache: 'no-store' });
       const data = await parseApiResponse<LedgerDTO>(res);
       setLedger(data);
-      setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error');
+      toast.error(errorMessage(err), 'No se pudo cargar el día');
     } finally {
       setLoading(false);
     }
-  }, [businessDate]);
+  }, [businessDate, toast]);
 
   useEffect(() => {
     void fetchLedger();
@@ -250,7 +242,6 @@ export default function DashboardHome() {
 
   async function printSummary() {
     try {
-      setError(null);
       setPrintingSummary(true);
 
       if (printMode === 'browser') {
@@ -261,6 +252,8 @@ export default function DashboardHome() {
           totalCompras: ledger?.totals.totalCompras ?? 0,
           totalVentas: ledger?.totals.totalVentas ?? 0,
           totalGastos: ledger?.totals.totalGastos ?? 0,
+          totalIngresos: ledger?.totals.totalIngresos ?? 0,
+          totalSalidas: ledger?.totals.totalSalidas ?? 0,
           saldoInicial: ledger?.balance.saldoInicial ?? 0,
           saldoActual: ledger?.totals.saldoActual ?? 0,
         });
@@ -295,13 +288,15 @@ export default function DashboardHome() {
         if (status === 'done' || status === 'error') break;
       }
 
-      if (status === 'error') {
-        setError(jobError || 'Error imprimiendo resumen');
+      if (status === 'done') {
+        toast.success('Resumen impreso');
+      } else if (status === 'error') {
+        toast.error(jobError || 'La impresora reportó un error.', 'No se pudo imprimir el resumen');
       } else if (status !== 'done') {
-        setError('La impresora no respondió a tiempo. Verifica que esté encendida y conectada a la red.');
+        toast.error(PRINTER_TIMEOUT_MESSAGE, 'No se pudo imprimir el resumen');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error imprimiendo resumen');
+      toast.error(errorMessage(err), 'No se pudo imprimir el resumen');
     } finally {
       setPrintingSummary(false);
     }
@@ -402,7 +397,6 @@ export default function DashboardHome() {
               </button>
             </div>
           </div>
-          {error ? <p style={{ color: 'var(--danger)' }}>{error}</p> : null}
         </article>
 
         <article className="card third kpi">
@@ -487,7 +481,6 @@ export default function DashboardHome() {
             Semana del {weeklyPivot ? weeklyPivot.days[0].businessDate : ''} al{' '}
             {weeklyPivot ? weeklyPivot.days[6].businessDate : ''} (libras y dinero comprado por material y día).
           </p>
-          {weeklyError ? <p style={{ color: 'var(--danger)' }}>{weeklyError}</p> : null}
           {weeklyLoading ? <p className="status-line">Cargando semana…</p> : null}
           {weeklyPivot ? (
             <div style={{ overflowX: 'auto', marginTop: 8 }}>
@@ -590,7 +583,6 @@ export default function DashboardHome() {
                 onClick={async () => {
                   try {
                     setStockLoading(true);
-                    setStockError(null);
                     setStockResult(null);
                     const qs = new URLSearchParams();
                     if (materialQuery.trim()) qs.set('materialId', materialQuery.trim());
@@ -600,7 +592,7 @@ export default function DashboardHome() {
                     const body = await parseApiResponse<StockResult>(res);
                     setStockResult(body);
                   } catch (err) {
-                    setStockError(err instanceof Error ? err.message : 'Error consultando stock');
+                    toast.error(errorMessage(err), 'No se pudo consultar el stock');
                   } finally {
                     setStockLoading(false);
                   }
@@ -611,7 +603,6 @@ export default function DashboardHome() {
             </div>
           </div>
 
-          {stockError ? <p style={{ color: 'var(--danger)' }}>{stockError}</p> : null}
           {stockResult ? (
             <div style={{ marginTop: 12 }}>
               {stockResult.data?.materialId ? (

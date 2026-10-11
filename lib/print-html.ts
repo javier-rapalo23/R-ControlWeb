@@ -93,6 +93,8 @@ export type BrowserSummaryData = {
   totalCompras: number;
   totalVentas: number;
   totalGastos: number;
+  totalIngresos: number;
+  totalSalidas: number;
   saldoInicial: number;
   saldoActual: number;
 };
@@ -129,6 +131,8 @@ export function printSummaryInBrowser(data: BrowserSummaryData) {
     <p>Total Compras: <span class="r">L ${data.totalCompras.toFixed(2)}</span></p>
     <p>Total Ventas: <span class="r">L ${data.totalVentas.toFixed(2)}</span></p>
     <p>Total Gastos: <span class="r">L ${data.totalGastos.toFixed(2)}</span></p>
+    <p>Ingresos a caja: <span class="r">L ${data.totalIngresos.toFixed(2)}</span></p>
+    <p>Salidas de efectivo: <span class="r">L ${data.totalSalidas.toFixed(2)}</span></p>
     <hr class="dash"/>
     <p>Saldo inicial: L ${data.saldoInicial.toFixed(2)}</p>
     <p class="total">CIERRE EST. CAJA: L ${data.saldoActual.toFixed(2)}</p>

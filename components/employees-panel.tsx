@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ApiResponse } from '@/types/api';
 import type {
   AttendanceDTO,
   EmployeeAdvanceDTO,
@@ -9,13 +8,9 @@ import type {
   EmployeePaymentDTO,
   PayrollDTO,
 } from '@/types/domain';
+import { errorMessage, parseApiResponse } from '@/lib/api-client';
 import { useRoleGuard } from '@/lib/use-role-guard';
-
-async function parseApiResponse<T>(response: Response): Promise<T> {
-  const body = (await response.json()) as ApiResponse<T>;
-  if (!body.ok) throw new Error(body.error.message);
-  return body.data;
-}
+import { useToast } from '@/components/toast';
 
 function toDateString(date: Date) {
   const year = date.getFullYear();
@@ -95,7 +90,7 @@ export default function EmployeesPanel() {
   const roleGuardStatus = useRoleGuard((role) => role === 'admin' || role === 'editor');
   const [section, setSection] = useState<Section>('planilla');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const [employees, setEmployees] = useState<EmployeeDTO[]>([]);
 
@@ -121,17 +116,20 @@ export default function EmployeesPanel() {
 
   const activeEmployees = useMemo(() => employees.filter((e) => e.activo), [employees]);
 
-  const run = useCallback(async (action: () => Promise<void>, fallback: string) => {
-    try {
-      setLoading(true);
-      await action();
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : fallback);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const run = useCallback(
+    async (action: () => Promise<void>, errorTitle: string, successMessage?: string) => {
+      try {
+        setLoading(true);
+        await action();
+        if (successMessage) toast.success(successMessage);
+      } catch (err) {
+        toast.error(errorMessage(err), errorTitle);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [toast],
+  );
 
   const fetchBase = useCallback(async () => {
     const data = await fetch('/api/employees', { cache: 'no-store' }).then((res) =>
@@ -178,14 +176,14 @@ export default function EmployeesPanel() {
 
   useEffect(() => {
     if (roleGuardStatus !== 'allowed') return;
-    void run(fetchBase, 'Error cargando empleados');
+    void run(fetchBase, 'No se pudieron cargar los empleados');
   }, [roleGuardStatus, run, fetchBase]);
 
   useEffect(() => {
     if (roleGuardStatus !== 'allowed') return;
-    if (section === 'planilla') void run(fetchPayroll, 'Error cargando planilla');
-    if (section === 'asistencia') void run(fetchAttendance, 'Error cargando asistencia');
-    if (section === 'movimientos') void run(fetchMovements, 'Error cargando movimientos');
+    if (section === 'planilla') void run(fetchPayroll, 'No se pudo cargar la planilla');
+    if (section === 'asistencia') void run(fetchAttendance, 'No se pudo cargar la asistencia');
+    if (section === 'movimientos') void run(fetchMovements, 'No se pudieron cargar los movimientos');
   }, [roleGuardStatus, section, run, fetchPayroll, fetchAttendance, fetchMovements]);
 
   async function send(url: string, method: string, body?: unknown) {
@@ -207,7 +205,7 @@ export default function EmployeesPanel() {
         adelantosAplicar: Number(discounts[employeeId] || 0),
       });
       await fetchPayroll();
-    }, 'Error pagando planilla');
+    }, 'No se pudo pagar la planilla', 'Planilla pagada');
   }
 
   function revertPayment(paymentId: string, after: () => Promise<void>) {
@@ -215,7 +213,7 @@ export default function EmployeesPanel() {
     void run(async () => {
       await send(`/api/employee-payments/${paymentId}`, 'DELETE');
       await after();
-    }, 'Error revirtiendo pago');
+    }, 'No se pudo revertir el pago', 'Pago revertido');
   }
 
   const payrollTotals = useMemo(() => {
@@ -237,7 +235,7 @@ export default function EmployeesPanel() {
   function saveAttendance(employeeId: string) {
     const draft = drafts[employeeId];
     if (!draft?.horaEntrada) {
-      setError('Ingrese la hora de entrada');
+      toast.error('Ingrese la hora de entrada antes de registrar.', 'Falta la hora de entrada');
       return;
     }
     void run(async () => {
@@ -248,14 +246,14 @@ export default function EmployeesPanel() {
         horaSalida: draft.horaSalida || null,
       });
       await fetchAttendance();
-    }, 'Error guardando asistencia');
+    }, 'No se pudo guardar la asistencia', 'Asistencia guardada');
   }
 
   function removeAttendance(id: string) {
     void run(async () => {
       await send(`/api/attendance/${id}`, 'DELETE');
       await fetchAttendance();
-    }, 'Error eliminando asistencia');
+    }, 'No se pudo quitar la asistencia', 'Asistencia eliminada');
   }
 
   function setDraft(employeeId: string, patch: Partial<AttendanceDraft>) {
@@ -271,7 +269,7 @@ export default function EmployeesPanel() {
     event.preventDefault();
     const employee = employees.find((e) => e.id === movementForm.employeeId);
     if (!employee) {
-      setError('Seleccione un empleado');
+      toast.error('Elija a quién corresponde el movimiento.', 'Seleccione un empleado');
       return;
     }
     void run(async () => {
@@ -283,7 +281,7 @@ export default function EmployeesPanel() {
       });
       setMovementForm((current) => ({ ...emptyMovementForm(), tipo: current.tipo, businessDate: current.businessDate }));
       await fetchMovements();
-    }, 'Error registrando movimiento');
+    }, 'No se pudo registrar el movimiento', movementForm.tipo === 'adelanto' ? 'Adelanto registrado' : 'Pago registrado');
   }
 
   function removeAdvance(id: string) {
@@ -291,7 +289,7 @@ export default function EmployeesPanel() {
     void run(async () => {
       await send(`/api/employee-advances/${id}`, 'DELETE');
       await fetchMovements();
-    }, 'Error eliminando adelanto');
+    }, 'No se pudo eliminar el adelanto', 'Adelanto eliminado');
   }
 
   // --- Empleados ---
@@ -314,7 +312,7 @@ export default function EmployeesPanel() {
       setEmployeeForm(emptyEmployeeForm());
       setEditingEmployeeId(null);
       await fetchBase();
-    }, 'Error guardando empleado');
+    }, 'No se pudo guardar el empleado', editingEmployeeId ? 'Empleado actualizado' : 'Empleado agregado');
   }
 
   function editEmployee(employee: EmployeeDTO) {
@@ -332,7 +330,7 @@ export default function EmployeesPanel() {
     void run(async () => {
       await send(`/api/employees/${employee.id}`, 'PATCH', { activo: !employee.activo });
       await fetchBase();
-    }, 'Error actualizando empleado');
+    }, 'No se pudo actualizar el empleado', employee.activo ? 'Empleado desactivado' : 'Empleado activado');
   }
 
   function removeEmployee(employee: EmployeeDTO) {
@@ -340,7 +338,7 @@ export default function EmployeesPanel() {
     void run(async () => {
       await send(`/api/employees/${employee.id}`, 'DELETE');
       await fetchBase();
-    }, 'Error eliminando empleado');
+    }, 'No se pudo eliminar el empleado', 'Empleado eliminado');
   }
 
   if (roleGuardStatus !== 'allowed') {
@@ -370,12 +368,6 @@ export default function EmployeesPanel() {
           </button>
         ))}
       </div>
-
-      {error ? (
-        <p className="card" style={{ color: 'var(--danger)', marginBottom: 12 }}>
-          {error}
-        </p>
-      ) : null}
 
       {/* ── PLANILLA ── */}
       {section === 'planilla' ? (

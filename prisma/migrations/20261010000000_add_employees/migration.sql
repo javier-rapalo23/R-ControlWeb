@@ -1,6 +1,18 @@
 -- CreateTable
+CREATE TABLE "Sucursal" (
+    "id" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Sucursal_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Employee" (
     "id" TEXT NOT NULL,
+    "sucursalId" TEXT NOT NULL,
     "nombre" TEXT NOT NULL,
     "puesto" TEXT,
     "telefono" TEXT,
@@ -31,6 +43,7 @@ CREATE TABLE "EmployeeAdvance" (
     "id" TEXT NOT NULL,
     "businessDate" DATE NOT NULL,
     "employeeId" TEXT NOT NULL,
+    "sucursalId" TEXT NOT NULL,
     "monto" DECIMAL(12,2) NOT NULL,
     "montoAplicado" DECIMAL(12,2) NOT NULL DEFAULT 0,
     "descripcion" TEXT,
@@ -45,6 +58,7 @@ CREATE TABLE "EmployeePayment" (
     "id" TEXT NOT NULL,
     "businessDate" DATE NOT NULL,
     "employeeId" TEXT NOT NULL,
+    "sucursalId" TEXT NOT NULL,
     "tipo" TEXT NOT NULL,
     "monto" DECIMAL(12,2) NOT NULL,
     "descripcion" TEXT,
@@ -69,6 +83,12 @@ CREATE TABLE "PayrollAdvanceApplication" (
 
     CONSTRAINT "PayrollAdvanceApplication_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Sucursal_nombre_key" ON "Sucursal"("nombre");
+
+-- CreateIndex
+CREATE INDEX "Employee_sucursalId_idx" ON "Employee"("sucursalId");
 
 -- CreateIndex
 CREATE INDEX "Attendance_employeeId_idx" ON "Attendance"("employeeId");
@@ -101,16 +121,25 @@ CREATE INDEX "PayrollAdvanceApplication_advanceId_idx" ON "PayrollAdvanceApplica
 CREATE UNIQUE INDEX "PayrollAdvanceApplication_paymentId_advanceId_key" ON "PayrollAdvanceApplication"("paymentId", "advanceId");
 
 -- AddForeignKey
+ALTER TABLE "Employee" ADD CONSTRAINT "Employee_sucursalId_fkey" FOREIGN KEY ("sucursalId") REFERENCES "Sucursal"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Attendance" ADD CONSTRAINT "Attendance_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "EmployeeAdvance" ADD CONSTRAINT "EmployeeAdvance_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "EmployeeAdvance" ADD CONSTRAINT "EmployeeAdvance_sucursalId_fkey" FOREIGN KEY ("sucursalId") REFERENCES "Sucursal"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "EmployeeAdvance" ADD CONSTRAINT "EmployeeAdvance_expenseId_fkey" FOREIGN KEY ("expenseId") REFERENCES "Expense"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "EmployeePayment" ADD CONSTRAINT "EmployeePayment_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "EmployeePayment" ADD CONSTRAINT "EmployeePayment_sucursalId_fkey" FOREIGN KEY ("sucursalId") REFERENCES "Sucursal"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "EmployeePayment" ADD CONSTRAINT "EmployeePayment_expenseId_fkey" FOREIGN KEY ("expenseId") REFERENCES "Expense"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -126,3 +155,6 @@ ALTER TABLE "EmployeeAdvance" ADD CONSTRAINT "EmployeeAdvance_montos_check" CHEC
 ALTER TABLE "EmployeePayment" ADD CONSTRAINT "EmployeePayment_tipo_check" CHECK ("tipo" IN ('manual', 'planilla'));
 ALTER TABLE "EmployeePayment" ADD CONSTRAINT "EmployeePayment_monto_check" CHECK ("monto" >= 0);
 ALTER TABLE "PayrollAdvanceApplication" ADD CONSTRAINT "PayrollAdvanceApplication_monto_check" CHECK ("monto" > 0);
+
+-- Sucursal inicial para poder dar de alta empleados
+INSERT INTO "Sucursal" ("id", "nombre", "activo", "updatedAt") VALUES ('principal', 'Principal', true, CURRENT_TIMESTAMP);

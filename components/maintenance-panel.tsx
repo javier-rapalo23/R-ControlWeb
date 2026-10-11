@@ -1,15 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { ApiResponse } from '@/types/api';
 import type { ClientDTO, CompanySettingsDTO, MaterialDTO, UserDTO } from '@/types/domain';
+import { errorMessage, parseApiResponse } from '@/lib/api-client';
 import { useRoleGuard } from '@/lib/use-role-guard';
-
-async function parseApiResponse<T>(response: Response): Promise<T> {
-  const body = (await response.json()) as ApiResponse<T>;
-  if (!body.ok) throw new Error(body.error.message);
-  return body.data;
-}
+import { useToast } from '@/components/toast';
 
 type Section = 'empresa' | 'usuarios' | 'roles' | 'materiales' | 'clientes';
 
@@ -61,13 +56,11 @@ export default function MaintenancePanel() {
     printerPort: '9100',
   });
   const [companyLoading, setCompanyLoading] = useState(false);
-  const [companyError, setCompanyError] = useState<string | null>(null);
-  const [companySuccess, setCompanySuccess] = useState(false);
+  const toast = useToast();
 
   // --- Users ---
   const [users, setUsers] = useState<UserDTO[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
-  const [usersError, setUsersError] = useState<string | null>(null);
   const [userForm, setUserForm] = useState<UserForm>(emptyUserForm);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -75,7 +68,6 @@ export default function MaintenancePanel() {
   // --- Materials ---
   const [materials, setMaterials] = useState<MaterialDTO[]>([]);
   const [materialsLoading, setMaterialsLoading] = useState(false);
-  const [materialsError, setMaterialsError] = useState<string | null>(null);
   const [editingMaterial, setEditingMaterial] = useState<{ id: string; nombre: string; precioPorLibra: string } | null>(null);
   const [newMatNombre, setNewMatNombre] = useState('');
   const [newMatPrecio, setNewMatPrecio] = useState('');
@@ -83,7 +75,6 @@ export default function MaintenancePanel() {
   // --- Clients ---
   const [clients, setClients] = useState<ClientDTO[]>([]);
   const [clientsLoading, setClientsLoading] = useState(false);
-  const [clientsError, setClientsError] = useState<string | null>(null);
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [clientForm, setClientForm] = useState<ClientForm>(emptyClientForm);
 
@@ -102,13 +93,12 @@ export default function MaintenancePanel() {
         printerIp: data.printerIp,
         printerPort: String(data.printerPort || 9100),
       });
-      setCompanyError(null);
     } catch (err) {
-      setCompanyError(err instanceof Error ? err.message : 'Error cargando empresa');
+      toast.error(errorMessage(err), 'No se pudieron cargar los datos de la empresa');
     } finally {
       setCompanyLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -116,13 +106,12 @@ export default function MaintenancePanel() {
       const res = await fetch('/api/settings/users', { cache: 'no-store' });
       const data = await parseApiResponse<UserDTO[]>(res);
       setUsers(data);
-      setUsersError(null);
     } catch (err) {
-      setUsersError(err instanceof Error ? err.message : 'Error cargando usuarios');
+      toast.error(errorMessage(err), 'No se pudieron cargar los usuarios');
     } finally {
       setUsersLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   const fetchMaterials = useCallback(async () => {
     try {
@@ -130,13 +119,12 @@ export default function MaintenancePanel() {
       const res = await fetch('/api/materials', { cache: 'no-store' });
       const data = await parseApiResponse<MaterialDTO[]>(res);
       setMaterials(data);
-      setMaterialsError(null);
     } catch (err) {
-      setMaterialsError(err instanceof Error ? err.message : 'Error cargando materiales');
+      toast.error(errorMessage(err), 'No se pudieron cargar los materiales');
     } finally {
       setMaterialsLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   const fetchClients = useCallback(async () => {
     try {
@@ -144,13 +132,12 @@ export default function MaintenancePanel() {
       const res = await fetch('/api/clients', { cache: 'no-store' });
       const data = await parseApiResponse<ClientDTO[]>(res);
       setClients(data);
-      setClientsError(null);
     } catch (err) {
-      setClientsError(err instanceof Error ? err.message : 'Error cargando clientes');
+      toast.error(errorMessage(err), 'No se pudieron cargar los clientes');
     } finally {
       setClientsLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     void fetchCompany();
@@ -172,8 +159,6 @@ export default function MaintenancePanel() {
     event.preventDefault();
     try {
       setCompanyLoading(true);
-      setCompanyError(null);
-      setCompanySuccess(false);
       const res = await fetch('/api/settings/company', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
@@ -184,10 +169,9 @@ export default function MaintenancePanel() {
       });
       const data = await parseApiResponse<CompanySettingsDTO>(res);
       setCompany(data);
-      setCompanySuccess(true);
-      setTimeout(() => setCompanySuccess(false), 3000);
+      toast.success('Datos de la empresa guardados');
     } catch (err) {
-      setCompanyError(err instanceof Error ? err.message : 'Error guardando empresa');
+      toast.error(errorMessage(err), 'No se pudieron guardar los datos de la empresa');
     } finally {
       setCompanyLoading(false);
     }
@@ -208,7 +192,6 @@ export default function MaintenancePanel() {
     event.preventDefault();
     try {
       setUsersLoading(true);
-      setUsersError(null);
       if (editingUserId) {
         const payload: Record<string, unknown> = { nombre: userForm.nombre, role: userForm.role };
         if (userForm.password) payload.password = userForm.password;
@@ -224,10 +207,11 @@ export default function MaintenancePanel() {
           body: JSON.stringify(userForm),
         }).then(parseApiResponse);
       }
+      toast.success(editingUserId ? 'Usuario actualizado' : 'Usuario creado');
       cancelUserEdit();
       await fetchUsers();
     } catch (err) {
-      setUsersError(err instanceof Error ? err.message : 'Error guardando usuario');
+      toast.error(errorMessage(err), 'No se pudo guardar el usuario');
     } finally {
       setUsersLoading(false);
     }
@@ -241,9 +225,10 @@ export default function MaintenancePanel() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ activo: !user.activo }),
       }).then(parseApiResponse);
+      toast.success(user.activo ? 'Usuario desactivado' : 'Usuario activado');
       await fetchUsers();
     } catch (err) {
-      setUsersError(err instanceof Error ? err.message : 'Error actualizando usuario');
+      toast.error(errorMessage(err), 'No se pudo actualizar el usuario');
     } finally {
       setUsersLoading(false);
     }
@@ -253,9 +238,10 @@ export default function MaintenancePanel() {
     try {
       setUsersLoading(true);
       await fetch(`/api/settings/users/${id}`, { method: 'DELETE' }).then(parseApiResponse);
+      toast.success('Usuario eliminado');
       await fetchUsers();
     } catch (err) {
-      setUsersError(err instanceof Error ? err.message : 'Error eliminando usuario');
+      toast.error(errorMessage(err), 'No se pudo eliminar el usuario');
     } finally {
       setUsersLoading(false);
     }
@@ -272,11 +258,12 @@ export default function MaintenancePanel() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ nombre: newMatNombre, precioPorLibra: Number(newMatPrecio) }),
       }).then(parseApiResponse);
+      toast.success('Material creado');
       setNewMatNombre('');
       setNewMatPrecio('');
       await fetchMaterials();
     } catch (err) {
-      setMaterialsError(err instanceof Error ? err.message : 'Error creando material');
+      toast.error(errorMessage(err), 'No se pudo crear el material');
     } finally {
       setMaterialsLoading(false);
     }
@@ -291,10 +278,11 @@ export default function MaintenancePanel() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ nombre: editingMaterial.nombre, precioPorLibra: Number(editingMaterial.precioPorLibra) }),
       }).then(parseApiResponse);
+      toast.success('Material actualizado');
       setEditingMaterial(null);
       await fetchMaterials();
     } catch (err) {
-      setMaterialsError(err instanceof Error ? err.message : 'Error actualizando material');
+      toast.error(errorMessage(err), 'No se pudo actualizar el material');
     } finally {
       setMaterialsLoading(false);
     }
@@ -304,9 +292,10 @@ export default function MaintenancePanel() {
     try {
       setMaterialsLoading(true);
       await fetch(`/api/materials/${id}`, { method: 'DELETE' }).then(parseApiResponse);
+      toast.success('Material eliminado');
       await fetchMaterials();
     } catch (err) {
-      setMaterialsError(err instanceof Error ? err.message : 'Error eliminando material');
+      toast.error(errorMessage(err), 'No se pudo eliminar el material');
     } finally {
       setMaterialsLoading(false);
     }
@@ -356,10 +345,11 @@ export default function MaintenancePanel() {
           body: JSON.stringify(payload),
         }).then(parseApiResponse);
       }
+      toast.success(editingClientId ? 'Cliente actualizado' : 'Cliente creado');
       cancelClientEdit();
       await fetchClients();
     } catch (err) {
-      setClientsError(err instanceof Error ? err.message : 'Error guardando cliente');
+      toast.error(errorMessage(err), 'No se pudo guardar el cliente');
     } finally {
       setClientsLoading(false);
     }
@@ -369,9 +359,10 @@ export default function MaintenancePanel() {
     try {
       setClientsLoading(true);
       await fetch(`/api/clients/${id}`, { method: 'DELETE' }).then(parseApiResponse);
+      toast.success('Cliente eliminado');
       await fetchClients();
     } catch (err) {
-      setClientsError(err instanceof Error ? err.message : 'Error eliminando cliente');
+      toast.error(errorMessage(err), 'No se pudo eliminar el cliente');
     } finally {
       setClientsLoading(false);
     }
@@ -414,8 +405,6 @@ export default function MaintenancePanel() {
           <p style={{ color: 'var(--text-soft)', fontSize: 13, marginBottom: 12 }}>
             Se usan en tickets, recibos y facturas.
           </p>
-          {companyError ? <p style={{ color: 'var(--danger)' }}>{companyError}</p> : null}
-          {companySuccess ? <p style={{ color: 'var(--success)' }}>Guardado correctamente.</p> : null}
           <form onSubmit={(e) => void saveCompany(e)} className="row">
             <label style={{ gridColumn: 'span 12' }}>
               Nombre de la empresa
@@ -483,7 +472,6 @@ export default function MaintenancePanel() {
           <p style={{ color: 'var(--text-soft)', fontSize: 13, marginBottom: 12 }}>
             Los usuarios creados aquí se autentican desde la base de datos. Los usuarios de <code>RBAC_USERS_JSON</code> siguen funcionando como respaldo.
           </p>
-          {usersError ? <p style={{ color: 'var(--danger)' }}>{usersError}</p> : null}
 
           <table className="table-like" style={{ marginBottom: 20 }}>
             <thead>
@@ -622,7 +610,6 @@ export default function MaintenancePanel() {
       {section === 'materiales' ? (
         <section className="card">
           <h3>Materiales</h3>
-          {materialsError ? <p style={{ color: 'var(--danger)' }}>{materialsError}</p> : null}
 
           <table className="table-like">
             <thead>
@@ -711,7 +698,6 @@ export default function MaintenancePanel() {
       {section === 'clientes' ? (
         <section className="card">
           <h3>Clientes</h3>
-          {clientsError ? <p style={{ color: 'var(--danger)' }}>{clientsError}</p> : null}
 
           <table className="table-like">
             <thead>

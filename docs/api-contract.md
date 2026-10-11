@@ -80,6 +80,15 @@ Propósito: documentar los endpoints disponibles, formato de petición/respuesta
 - `GET /api/health`  
   - Health check minimal.
 
+### Caja (solo `admin`)
+
+`saldoActual = saldoInicial + ventas + ingresos − compras − gastos − salidas`. `GET /api/ledger` devuelve además `totals.totalIngresos`, `totals.totalSalidas` y `cashMovements`.
+
+- `POST /api/ledger/initial-balance` — inicio de caja: `{ businessDate, saldoInicial }`.
+- `GET /api/cash-movements?businessDate=YYYY-MM-DD`
+- `POST /api/cash-movements` — `{ businessDate, tipo: "ingreso" | "salida", concepto, monto }`. Recalcula el saldo del día.
+- `DELETE /api/cash-movements/:id`
+
 ### Personal
 
 Los adelantos y pagos sacan efectivo de la caja: cada uno crea un `Expense` (categorías `Adelanto`, `Pago empleado`, `Planilla`) y recalcula el saldo del día. Ese gasto no se puede borrar desde `DELETE /api/expenses/:id`; se revierte desde el adelanto o el pago.

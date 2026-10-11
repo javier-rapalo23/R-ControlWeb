@@ -59,6 +59,7 @@
   --z-backdrop: 55;
   --z-drawer: 60;
   --z-topbar: 65;
+  --z-toast: 80;
 }
 
 [data-theme='dark'] {
@@ -1079,15 +1080,6 @@ a.btn-primary:focus-visible {
   min-height: 44px;
 }
 
-.login-error {
-  margin: 0;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--danger-soft);
-  color: var(--danger);
-  font-size: 0.88rem;
-}
-
 .password-field {
   position: relative;
 }
@@ -1347,5 +1339,112 @@ a.btn-primary:focus-visible {
     animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* ==========================================================================
+   Toasts
+   ========================================================================== */
+
+.toast-region {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(380px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.toast {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 12px;
+  padding: 14px 12px 14px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--toast-color);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  animation: toast-in 220ms var(--ease-out);
+}
+
+.toast--error {
+  --toast-color: var(--danger);
+}
+
+.toast--success {
+  --toast-color: var(--success);
+}
+
+.toast__icon {
+  color: var(--toast-color);
+  margin-top: 1px;
+}
+
+.toast__body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.toast__title {
+  font-size: 0.9rem;
+  color: var(--text-main);
+}
+
+.toast__message {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--text-soft);
+  overflow-wrap: anywhere;
+}
+
+.toast__close {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: -4px -2px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+
+.toast__close:hover {
+  background: var(--surface-alt);
+  color: var(--text-main);
+}
+
+.toast__close:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 640px) {
+  .toast-region {
+    right: 16px;
+    left: 16px;
+    bottom: 16px;
+    width: auto;
   }
 }

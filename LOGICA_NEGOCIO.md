@@ -15,7 +15,9 @@ Todo se organiza por `businessDate` y cada dia tiene su propio balance.
 
 La ecuacion base del balance es:
 
-`saldoActual = saldoInicial + totalVentas - totalCompras - totalGastos`
+`saldoActual = saldoInicial + totalVentas + totalIngresos - totalCompras - totalGastos - totalSalidas`
+
+`totalIngresos` y `totalSalidas` son los movimientos de caja (`CashMovement`): entradas y salidas de efectivo que no son ventas, compras ni gastos, como aportes del dueño o depósitos al banco. El inicio de caja (`saldoInicial`) y estos movimientos se manejan en el módulo Caja, que es solo para administradores.
 
 ## 2. Entidades principales
 

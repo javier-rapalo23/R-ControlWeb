@@ -149,6 +149,8 @@ export type SummaryData = {
   totalCompras: number;
   totalVentas: number;
   totalGastos: number;
+  totalIngresos: number;
+  totalSalidas: number;
   saldoInicial: number;
   saldoActual: number;
 };
@@ -182,6 +184,8 @@ export function buildSummaryBuffer(data: SummaryData): Buffer {
   chunks.push(text(twoColumns('Total Compras:', `L ${data.totalCompras.toFixed(2)}`)));
   chunks.push(text(twoColumns('Total Ventas:', `L ${data.totalVentas.toFixed(2)}`)));
   chunks.push(text(twoColumns('Total Gastos:', `L ${data.totalGastos.toFixed(2)}`)));
+  chunks.push(text(twoColumns('Ingresos caja:', `L ${data.totalIngresos.toFixed(2)}`)));
+  chunks.push(text(twoColumns('Salidas efectivo:', `L ${data.totalSalidas.toFixed(2)}`)));
   chunks.push(text(dash));
   chunks.push(text(twoColumns('Saldo inicial:', `L ${data.saldoInicial.toFixed(2)}`)));
 
