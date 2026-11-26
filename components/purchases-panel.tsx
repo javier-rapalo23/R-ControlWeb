@@ -7,6 +7,8 @@ import { printTicketInBrowser } from '@/lib/print-html';
 import { errorMessage, parseApiResponse, PRINTER_TIMEOUT_MESSAGE } from '@/lib/api-client';
 import { useToast } from '@/components/toast';
 
+type MaterialSort = 'default' | 'name' | 'price-asc' | 'price-desc';
+
 type CartItem = {
   id: string;
   materialId: string;
@@ -47,6 +49,19 @@ export default function PurchasesPanel() {
   const [itemMaterialId, setItemMaterialId] = useState('');
   const [itemLibras, setItemLibras] = useState('');
   const [itemPrice, setItemPrice] = useState('');
+  const [materialSort, setMaterialSort] = useState<MaterialSort>('default');
+
+  const sortedMaterials = useMemo(() => {
+    if (materialSort === 'default') return materials;
+    const sorted = [...materials];
+    if (materialSort === 'name') {
+      sorted.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base', numeric: true }));
+    } else {
+      const direction = materialSort === 'price-asc' ? 1 : -1;
+      sorted.sort((a, b) => (Number(a.precioPorLibra) - Number(b.precioPorLibra)) * direction);
+    }
+    return sorted;
+  }, [materials, materialSort]);
 
   const fetchMaterials = useCallback(async () => {
     const response = await fetch('/api/materials', { cache: 'no-store' });
@@ -349,10 +364,21 @@ export default function PurchasesPanel() {
         </article>
 
         <article className="card wide">
-          <h3>Agregar item al carrito</h3>
+          <div className="card-head">
+            <h3>Agregar item al carrito</h3>
+            <label className="inline-field">
+              Ordenar materiales
+              <select value={materialSort} onChange={(e) => setMaterialSort(e.target.value as MaterialSort)}>
+                <option value="default">Por defecto</option>
+                <option value="name">Nombre (A-Z)</option>
+                <option value="price-asc">Precio (menor a mayor)</option>
+                <option value="price-desc">Precio (mayor a menor)</option>
+              </select>
+            </label>
+          </div>
 
           <div className="material-grid">
-            {materials.map((material) => {
+            {sortedMaterials.map((material) => {
               const selected = itemMaterialId === material.id;
               return (
                 <button
