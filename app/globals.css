@@ -834,6 +834,36 @@ a.btn-primary:focus-visible {
   color: var(--text-soft);
 }
 
+/* Selector de dos o más opciones exclusivas (ej. Diario / Semanal) */
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--surface-alt);
+}
+
+.segmented button {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-soft);
+  padding: 6px 12px;
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.segmented button:hover:not(:disabled) {
+  color: var(--text-main);
+}
+
+.segmented button.is-active {
+  background: var(--surface);
+  color: var(--accent-ink);
+  border-color: var(--border-color);
+  font-weight: 600;
+}
+
 .muted {
   color: var(--text-soft);
 }

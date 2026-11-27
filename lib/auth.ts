@@ -67,3 +67,23 @@ export async function getDbUserConfig(userId: string, prismaClient: any): Promis
     return null;
   }
 }
+
+// Usuario que hace la petición: header `x-user-id` o cookie `rcontrol_user` (la misma regla que el middleware).
+export function getRequestUserId(request: Request): string | null {
+  const header = request.headers.get('x-user-id')?.trim();
+  if (header) return header;
+
+  const cookieHeader = request.headers.get('cookie') ?? '';
+  for (const part of cookieHeader.split(';')) {
+    const [name, ...rest] = part.trim().split('=');
+    if (name === 'rcontrol_user') {
+      try {
+        const value = decodeURIComponent(rest.join('=')).trim();
+        return value || null;
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+}

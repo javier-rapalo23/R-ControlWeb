@@ -209,3 +209,18 @@ export type PayrollDTO = {
   periodoFin: string;
   rows: PayrollRowDTO[];
 };
+
+export type PurchasesByUserRow = {
+  userId: string | null;
+  nombre: string;
+  compras: number;
+  libras: number;
+  total: number;
+};
+
+export type PurchasesByUserReportDTO = {
+  from: string;
+  to: string;
+  rows: PurchasesByUserRow[];
+  totals: { compras: number; libras: number; total: number };
+};

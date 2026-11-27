@@ -4,6 +4,7 @@ import { failure, handleApiError, success } from '@/lib/api-response';
 import { prisma } from '@/lib/prisma';
 import { parseBusinessDate, toBusinessDateString } from '@/lib/business-date';
 import { recalculateDailyBalance } from '@/lib/ledger';
+import { getRequestUserId } from '@/lib/auth';
 
 function mapTransaction(transaction: {
   id: string;
@@ -134,6 +135,7 @@ export async function POST(request: Request) {
           businessDate: parseBusinessDate(payload.businessDate),
           clientId: client.id,
           total,
+          createdByUserId: getRequestUserId(request),
           items: {
             create: items,
           },

@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useCallback, useEffect, useState } from 'react';
-import type { CompanySettingsDTO, LedgerDTO, MaterialDTO } from '@/types/domain';
+import type { CompanySettingsDTO, LedgerDTO, MaterialDTO, PurchasesByUserReportDTO } from '@/types/domain';
 import { useRoleGuard } from '@/lib/use-role-guard';
 import { usePrintMode } from '@/lib/use-print-mode';
 import { printSummaryInBrowser, printWeeklySummaryInBrowser } from '@/lib/print-html';
@@ -129,6 +129,41 @@ export default function DashboardHome() {
   const [weeklyPivot, setWeeklyPivot] = useState<WeeklyPivot | null>(null);
   const [weeklyLoading, setWeeklyLoading] = useState(false);
   const [printingWeekly, setPrintingWeekly] = useState(false);
+  const [userReportMode, setUserReportMode] = useState<'daily' | 'weekly'>('daily');
+  const [userReportDate, setUserReportDate] = useState(todayDateString());
+  const [userReport, setUserReport] = useState<PurchasesByUserReportDTO | null>(null);
+  const [userReportLoading, setUserReportLoading] = useState(false);
+
+  const fetchUserReport = useCallback(async () => {
+    if (!userReportDate) return;
+    try {
+      setUserReportLoading(true);
+      let from = userReportDate;
+      let to = userReportDate;
+      if (userReportMode === 'weekly') {
+        const days = getWeekDays(userReportDate);
+        from = days[0].businessDate;
+        to = days[6].businessDate;
+      }
+      const qs = new URLSearchParams({ from, to });
+      const res = await fetch(`/api/reports/purchases-by-user?${qs.toString()}`, { cache: 'no-store' });
+      setUserReport(await parseApiResponse<PurchasesByUserReportDTO>(res));
+    } catch (err) {
+      toast.error(errorMessage(err), 'No se pudo cargar el reporte por usuario');
+    } finally {
+      setUserReportLoading(false);
+    }
+  }, [userReportMode, userReportDate, toast]);
+
+  useEffect(() => {
+    void fetchUserReport();
+  }, [fetchUserReport]);
+
+  function shiftUserReport(delta: number) {
+    const current = parseLocalDate(userReportDate);
+    current.setDate(current.getDate() + delta * (userReportMode === 'weekly' ? 7 : 1));
+    setUserReportDate(formatLocalDate(current));
+  }
 
   const fetchWeeklyPivot = useCallback(async () => {
     try {
@@ -544,6 +579,92 @@ export default function DashboardHome() {
                       <td className="num" style={{ fontWeight: 650 }}>
                         L {weeklyPivot.grandTotalMonto.toFixed(2)}
                       </td>
+                    </tr>
+                  </tfoot>
+                ) : null}
+              </table>
+            </div>
+          ) : null}
+        </article>
+
+        <article className="card wide">
+          <div className="card-head">
+            <h3>Compras por usuario</h3>
+            <div className="card-actions">
+              <div className="segmented" role="group" aria-label="Periodo del reporte">
+                <button
+                  type="button"
+                  className={userReportMode === 'daily' ? 'is-active' : ''}
+                  aria-pressed={userReportMode === 'daily'}
+                  onClick={() => setUserReportMode('daily')}
+                >
+                  Diario
+                </button>
+                <button
+                  type="button"
+                  className={userReportMode === 'weekly' ? 'is-active' : ''}
+                  aria-pressed={userReportMode === 'weekly'}
+                  onClick={() => setUserReportMode('weekly')}
+                >
+                  Semanal
+                </button>
+              </div>
+              <button className="btn-secondary" type="button" onClick={() => shiftUserReport(-1)}>
+                ◀ {userReportMode === 'weekly' ? 'Semana anterior' : 'Día anterior'}
+              </button>
+              <label className="inline-field">
+                {userReportMode === 'weekly' ? 'Semana de' : 'Fecha'}
+                <input type="date" value={userReportDate} onChange={(e) => setUserReportDate(e.target.value)} />
+              </label>
+              <button className="btn-secondary" type="button" onClick={() => shiftUserReport(1)}>
+                {userReportMode === 'weekly' ? 'Semana siguiente' : 'Día siguiente'} ▶
+              </button>
+            </div>
+          </div>
+          <p className="muted" style={{ fontSize: 13, margin: '6px 0 0' }}>
+            {userReport
+              ? userReport.from === userReport.to
+                ? `Compras registradas el ${userReport.from}, agrupadas por el usuario que las hizo.`
+                : `Compras registradas del ${userReport.from} al ${userReport.to}, agrupadas por el usuario que las hizo.`
+              : ''}
+          </p>
+          {userReportLoading ? <p className="status-line">Cargando reporte…</p> : null}
+          {userReport ? (
+            <div style={{ overflowX: 'auto', marginTop: 8 }}>
+              <table className="table-like">
+                <thead>
+                  <tr>
+                    <th>Usuario</th>
+                    <th className="num">Compras</th>
+                    <th className="num">Libras</th>
+                    <th className="num">Total (L)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {userReport.rows.map((row) => (
+                    <tr key={row.userId ?? '__none__'}>
+                      <td>
+                        {row.nombre}
+                        {row.userId && row.nombre !== row.userId ? <div className="sub-num">{row.userId}</div> : null}
+                      </td>
+                      <td className="num">{row.compras}</td>
+                      <td className="num">{row.libras.toLocaleString('es-HN')} lb</td>
+                      <td className="num">L {row.total.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                  {userReport.rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={4}>No hay compras registradas en este periodo.</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+                {userReport.rows.length > 0 ? (
+                  <tfoot>
+                    <tr>
+                      <td>Total</td>
+                      <td className="num" style={{ fontWeight: 650 }}>{userReport.totals.compras}</td>
+                      <td className="num" style={{ fontWeight: 650 }}>{userReport.totals.libras.toLocaleString('es-HN')} lb</td>
+                      <td className="num" style={{ fontWeight: 650 }}>L {userReport.totals.total.toFixed(2)}</td>
                     </tr>
                   </tfoot>
                 ) : null}
